@@ -1,26 +1,23 @@
 import fs from "node:fs";
 import path from "node:path";
-import url from 'node:url'
 import { EOL } from "node:os";
 import { generateApi } from "swagger-typescript-api";
 import { camelize, stringifyObjectWithUnstringifiedKeys } from "./utils/text.js";
 import { indentCharacter, indentCount } from "./config.js";
 
-const __dirname = path.dirname(url.fileURLToPath(import.meta.url))
-
 const result: Record<string, any> = {};
 const runtimeDataResult: Record<string, any> = {};
 
-/* NOTE: all fields are optional expect one of `input`, `url`, `spec` */
+let argFilePath = process.argv[2];
+if (argFilePath === undefined)
+  throw new Error('Missing filepath argument');
+argFilePath = path.isAbsolute(argFilePath) ? argFilePath : path.resolve(process.cwd(), argFilePath);
+
+if (!fs.existsSync(argFilePath))
+  throw new Error('Specified schema file does not exist on your system');
+
 generateApi({
-  input: path.resolve(process.cwd(), "./data/hafbe.json"),
-  templates: path.resolve(__dirname, "../src/templates"),
-  /*extraTemplates: [
-    {
-      name: 'interface-data-contract.ejs',
-      path: path.resolve(__dirname, "../src/templates/base/interface-data-contract.ejs")
-    }
-  ],*/
+  input: argFilePath,
   generateClient: false,
   generateRouteTypes: false,
   generateResponses: true,
@@ -54,16 +51,6 @@ generateApi({
     },
   }),
   hooks: {
-    onCreateComponent: (component) => {
-      // console.log(component);
-
-      return undefined;
-    },
-    onCreateRequestParams: (rawType) => {
-      // console.log(rawType);
-
-      return undefined;
-    },
     onCreateRoute: (routeData) => {
 
       const type = routeData.response.type;
@@ -73,10 +60,13 @@ generateApi({
       let currObj = result;
       let currObjRuntime = runtimeDataResult;
 
+      let urlPathName: string;
       let camelCaseName: string;
 
       for(const el of routeParts) {
         camelCaseName = camelize(el);
+
+        urlPathName = el.startsWith('{') ? camelCaseName : el;
 
         const normalizedName = camelCaseName.startsWith('{') ? camelCaseName.slice(1, -1) : camelCaseName;
 
@@ -88,7 +78,7 @@ generateApi({
         currObjRuntime = currObjRuntime[normalizedName];
       }
 
-      currObjRuntime.urlPath = camelCaseName;
+      currObjRuntime.urlPath = urlPathName;
       currObjRuntime.method = routeData.raw.method.toUpperCase();
       currObj.result = type;
       // No query and path params (set params to undefined to allow generation of function with no arguments)
@@ -102,62 +92,17 @@ generateApi({
       }
 
       return undefined;
-    },
-    onCreateRouteName: (routeNameInfo, rawRouteInfo) => {
-      // console.log(routeNameInfo, rawRouteInfo);
-
-      // console.log((rawRouteInfo.responses?.[200] as any).content);
-
-      return undefined;
-    },
-    onFormatRouteName: (routeInfo, templateRouteName) => {
-      // console.log(routeInfo, templateRouteName);
-      // hafbe_endpoints.get_latest_blocks -> /operation-type-counts
-
-      return undefined;
-    },
-    onFormatTypeName: (typeName, rawTypeName, schemaType) => {
-      // console.log(typeName, rawTypeName, schemaType);
-      // HafbeEndpointsGetWitnessesParams -> HafbeEndpointsGetWitnessesParams
-      // hafbe_types.account_authority -> HafbeTypesAccountAuthority
-
-      return undefined;
-    },
-    onInit: (configuration) => undefined,
-    onPreParseSchema: (originalSchema, typeName, schemaType) => {
-      // console.log(originalSchema, typeName, schemaType);
-
-      return undefined;
-    },
-    onParseSchema: (originalSchema, parsedSchema) => {
-      // console.log(originalSchema, parsedSchema);
-
-      return undefined;
-    },
-    onBuildRoutePath: (data) => {
-      // console.log(data); // { originalRoute, route, pathParams }
-
-      return undefined;
-    },
-    onInsertPathParam: (paramName, index, arr, resultRoute) => {
-      // console.log(paramName, index, arr, resultRoute); // inputValue 0 [{ $match: '{input-value}', name: 'inputValue', type: 'string' }] /input-type/{input-value}
-
-      return undefined;
-    },
-    onPreBuildRoutePath: (routePath) => {
-      // console.log(routePath); // /input-type/{input-value}
-
-      return undefined;
-    },
-    onPrepareConfig: (currentConfiguration) => {
-      // currentConfiguration.config.templatePaths
-
-      return undefined;
-    },
+    }
   },
 })
-  .then(({ files, configuration }) => {
-    const outDeclarationsPath = path.resolve(process.cwd(), "./generated/out.d.ts");
+  .then(({ files }) => {
+    const dir = path.resolve(process.cwd(), "./generated");
+
+    if (!fs.existsSync(dir))
+      fs.mkdirSync(dir);
+
+    // Create declarations file
+    const outDeclarationsPath = path.resolve(dir, 'out.d.ts');
     fs.writeFileSync(outDeclarationsPath, 'type TEmptyReq = {}' + EOL, { encoding: 'utf8' });
     files.forEach(({ fileContent }) => {
       fs.appendFileSync(outDeclarationsPath, fileContent, { encoding: 'utf8' });
@@ -166,7 +111,8 @@ generateApi({
       hafbe: result
     }, indentCount) + EOL + "declare var WaxExtendedData: TWaxRestAPiExtended" + EOL + "export default WaxExtendedData" + EOL, { encoding: 'utf8' });
 
-    const outSourcePath = path.resolve(process.cwd(), "./generated/out.js");
+    // Create runtime JS file
+    const outSourcePath = path.resolve(dir, 'out.js');
     fs.writeFileSync(outSourcePath, "export default " + stringifyObjectWithUnstringifiedKeys([], {
       hafbe: runtimeDataResult
     }, indentCount) + EOL, { encoding: 'utf8' });

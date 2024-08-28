@@ -3,4 +3,4 @@ import { createHiveChain } from "@hiveio/wax";
 
 const chain = (await createHiveChain()).extendRest(WaxExtendedData);
 
-chain.restApi // Test your generated data here
+console.log(await chain.restApi); // Test your generated data here

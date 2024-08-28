@@ -1,6 +1,7 @@
 data
 node_modules
 *.log
+dist
 .vscode
 generated
 tsconfig.tsbuildinfo
