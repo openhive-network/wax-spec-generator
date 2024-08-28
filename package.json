@@ -1,0 +1,20 @@
+{
+  "name": "wax-spec-generator",
+  "version": "0.1.0",
+  "description": "Wax library REST API specification generator",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node src/index.js"
+  },
+  "license": "SEE LICENSE IN LICENSE.md",
+  "devDependencies": {
+    "@types/node": "18",
+    "swagger-typescript-api": "^13.0.22",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4",
+    "@hiveio/wax": "file:../wax"
+  }
+}
