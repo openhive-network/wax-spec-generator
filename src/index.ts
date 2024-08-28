@@ -4,6 +4,7 @@ import url from 'node:url'
 import { EOL } from "node:os";
 import { generateApi } from "swagger-typescript-api";
 import { camelize, stringifyObjectWithUnstringifiedKeys } from "./utils/text.js";
+import { indentCharacter, indentCount } from "./config.js";
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url))
 
@@ -90,7 +91,15 @@ generateApi({
       currObjRuntime.urlPath = camelCaseName;
       currObjRuntime.method = routeData.raw.method.toUpperCase();
       currObj.result = type;
-      currObj.params = undefined;
+      // No query and path params (set params to undefined to allow generation of function with no arguments)
+      if ((routeData.request as any).pathParams === undefined && (routeData.request as any).query === undefined)
+        currObj.params = undefined;
+      else { // Either query params or no query params, but path params exist, so use TEmptyReq - {}
+        currObj.params = (((routeData.request as any).requestParams?.typeName) ?? 'TEmptyReq')
+          + (` & {${EOL}${
+            (routeData.request as any).parameters.map(({name, optional, type, description}) => `${indentCharacter.repeat(indentCount)}/** ${description} */${EOL}${indentCharacter.repeat(indentCount)}${name}${optional?'?':''}: ${type};${EOL}`).join(EOL)
+          }}`);
+      }
 
       return undefined;
     },
@@ -149,18 +158,18 @@ generateApi({
 })
   .then(({ files, configuration }) => {
     const outDeclarationsPath = path.resolve(process.cwd(), "./generated/out.d.ts");
-    fs.writeFileSync(outDeclarationsPath, '', { encoding: 'utf8' });
+    fs.writeFileSync(outDeclarationsPath, 'type TEmptyReq = {}' + EOL, { encoding: 'utf8' });
     files.forEach(({ fileContent }) => {
       fs.appendFileSync(outDeclarationsPath, fileContent, { encoding: 'utf8' });
     });
     fs.appendFileSync(outDeclarationsPath, EOL + "type TWaxRestAPiExtended = " + stringifyObjectWithUnstringifiedKeys(['result','params'], {
       hafbe: result
-    }, 2, 2) + EOL + "declare var WaxExtendedData: TWaxRestAPiExtended" + EOL + "export default WaxExtendedData" + EOL, { encoding: 'utf8' });
+    }, indentCount) + EOL + "declare var WaxExtendedData: TWaxRestAPiExtended" + EOL + "export default WaxExtendedData" + EOL, { encoding: 'utf8' });
 
     const outSourcePath = path.resolve(process.cwd(), "./generated/out.js");
     fs.writeFileSync(outSourcePath, "export default " + stringifyObjectWithUnstringifiedKeys([], {
       hafbe: runtimeDataResult
-    }, 2, 2) + EOL, { encoding: 'utf8' });
+    }, indentCount) + EOL, { encoding: 'utf8' });
   })
   .catch((e) => {
     console.error(e);
