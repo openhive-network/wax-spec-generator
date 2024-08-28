@@ -15,6 +15,6 @@
     "swagger-typescript-api": "^13.0.22",
     "tsx": "^4.19.0",
     "typescript": "^5.5.4",
-    "@hiveio/wax": "file:../wax"
+    "@hiveio/wax": "1.27.6-rc2-stable.240828054047"
   }
 }
