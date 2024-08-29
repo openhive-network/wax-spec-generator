@@ -10,11 +10,14 @@
     "start": "node dist/index.js"
   },
   "license": "SEE LICENSE IN LICENSE.md",
-  "devDependencies": {
-    "@types/node": "18",
+  "dependencies": {
     "swagger-typescript-api": "^13.0.22",
+    "yargs": "^17.7.2"
+  },
+  "devDependencies": {
+    "@hiveio/wax": "1.27.6-rc2-stable.240828054047",
+    "@types/node": "18",
     "tsx": "^4.19.0",
-    "typescript": "^5.5.4",
-    "@hiveio/wax": "1.27.6-rc2-stable.240828054047"
+    "typescript": "^5.5.4"
   }
 }

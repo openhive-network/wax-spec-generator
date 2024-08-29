@@ -1,5 +1,5 @@
 import { EOL } from "node:os";
-import { indentCharacter, indentCount } from "../config.js";
+import { indentCharacter, indentCount } from "../constants.js";
 
 export const camelize = (str: string) => str.replace(/-./g, node => node[1].toUpperCase());
 

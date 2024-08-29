@@ -7,6 +7,13 @@ settings:
 importers:
 
   .:
+    dependencies:
+      swagger-typescript-api:
+        specifier: ^13.0.22
+        version: 13.0.22
+      yargs:
+        specifier: ^17.7.2
+        version: 17.7.2
     devDependencies:
       '@hiveio/wax':
         specifier: 1.27.6-rc2-stable.240828054047
@@ -14,9 +21,6 @@ importers:
       '@types/node':
         specifier: '18'
         version: 18.19.47
-      swagger-typescript-api:
-        specifier: ^13.0.22
-        version: 13.0.22
       tsx:
         specifier: ^4.19.0
         version: 4.19.0
