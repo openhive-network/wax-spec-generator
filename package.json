@@ -1,13 +1,15 @@
 {
-  "name": "wax-spec-generator",
-  "version": "0.1.0",
+  "name": "@hiveio/wax-spec-generator",
+  "version": "0.0.1-LastGitTagPlaceholder.GitHashPlaceholder",
   "description": "Wax library REST API specification generator",
   "main": "dist/index.js",
+  "private": false,
+  "packageManager": "pnpm@9.1.1+sha256.9551e803dcb7a1839fdf5416153a844060c7bce013218ce823410532504ac10b",
   "type": "module",
   "scripts": {
-    "dev": "tsx src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "postbuild": "chmod +x dist/index.js",
+    "start": "dist/index.js"
   },
   "license": "SEE LICENSE IN LICENSE.md",
   "dependencies": {
@@ -15,9 +17,40 @@
     "yargs": "^17.7.2"
   },
   "devDependencies": {
-    "@hiveio/wax": "1.27.6-rc2-stable.240828054047",
     "@types/node": "18",
-    "tsx": "^4.19.0",
+    "@types/yargs": "^17.0.33",
     "typescript": "^5.5.4"
+  },
+  "exports": {
+    ".": {
+      "default": {
+        "import": {
+          "default": "./dist/index.js"
+        }
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "keywords": [
+    "blockchain",
+    "hive",
+    "swagger",
+    "wax"
+  ],
+  "files": [
+    "LICENSE.md",
+    "README.md",
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://gitlab.syncad.com/hive/wax-spec-generator.git"
+  },
+  "engines": {
+    "node": ">= 18"
+  },
+  "publishConfig": {
+    "registry": "https://RegistryPlaceholder",
+    "tag": "DistTagPlaceholder"
   }
 }

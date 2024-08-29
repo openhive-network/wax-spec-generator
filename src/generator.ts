@@ -3,7 +3,7 @@ import path from "node:path";
 import { EOL } from "node:os";
 import { generateApi } from "swagger-typescript-api";
 import { stringifyObjectWithUnstringifiedKeys } from "./utils/text.js";
-import { indentCount } from "./constants.js";
+import { fileEncoding, indentCount } from "./constants.js";
 import { onCreateRoute } from "./hooks/on-create-route.js";
 import { addNamespace } from "./utils/object.js";
 
@@ -64,24 +64,24 @@ export const generate = async (config: IGeneratorConfig): Promise<void> => {
     fs.mkdirSync(config.outputDirectory);
 
   // Create declarations file
-  const outDeclarationsPath = path.resolve(config.outputDirectory, `${config.outputFilePrefix}.d.ts`);
-  fs.writeFileSync(outDeclarationsPath, 'type TEmptyReq = {}' + EOL, { encoding: 'utf8' });
+  const outDeclarationsPath = path.join(config.outputDirectory, `${config.outputFilePrefix}.d.ts`);
+  fs.writeFileSync(outDeclarationsPath, 'type TEmptyReq = {}' + EOL, { encoding: fileEncoding });
   files.forEach(({ fileContent }) => {
-    fs.appendFileSync(outDeclarationsPath, fileContent, { encoding: 'utf8' });
+    fs.appendFileSync(outDeclarationsPath, fileContent, { encoding: fileEncoding });
   });
   fs.appendFileSync(
     outDeclarationsPath,
     EOL + "type TWaxRestAPiExtended = "
       + stringifyObjectWithUnstringifiedKeys(['result','params'], addNamespace(result, config.namespace), indentCount)
       + EOL + "declare var WaxExtendedData: TWaxRestAPiExtended" + EOL + "export default WaxExtendedData" + EOL,
-    { encoding: 'utf8' }
+    { encoding: fileEncoding }
   );
 
   // Create runtime JS file
-  const outSourcePath = path.resolve(config.outputDirectory, `${config.outputFilePrefix}.js`);
+  const outSourcePath = path.join(config.outputDirectory, `${config.outputFilePrefix}.js`);
   fs.writeFileSync(
     outSourcePath,
     "export default " + stringifyObjectWithUnstringifiedKeys([], addNamespace(runtimeDataResult, config.namespace), indentCount) + EOL,
-    { encoding: 'utf8' }
+    { encoding: fileEncoding }
   );
 };
