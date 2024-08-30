@@ -60,9 +60,6 @@ export const generate = async (config: IGeneratorConfig): Promise<void> => {
     },
   });
 
-  if (!fs.existsSync(config.outputDirectory))
-    fs.mkdirSync(config.outputDirectory);
-
   // Create declarations file
   const outDeclarationsPath = path.join(config.outputDirectory, `${config.outputFilePrefix}.d.ts`);
   fs.writeFileSync(outDeclarationsPath, 'type TEmptyReq = {}' + EOL, { encoding: fileEncoding });

@@ -4,20 +4,38 @@ Wax library REST API specification generator
 
 ## Running
 
-We currently only support Swagger json files. You should download any schema file, like [`https://api.syncad.com/hafbe/`](https://api.syncad.com/hafbe/) and then specify its path to the `dev` script:
+We currently only support Swagger json files. You should download any schema file, like [`https://api.syncad.com/hafbe/`](https://api.syncad.com/hafbe/) and then specify its path to the `generate-wax-spec` binary.
+
+See the help message using the following command:
+
+```bash
+npx generate-wax-spec --help
+```
+
+### Examples
+
+#### generate JS and D.TS files only using the hafbe namsepace
+
+```bash
+npx generate-wax-spec -i data/hafbe.json -N hafbe
+```
+
+#### Emit entire npm project along the JS and D.TS files
+
+```bash
+npx generate-wax-spec -i data/hafbe.json -N hafbe -e --npm-name "@hiveio/wax-api-hafbe" --npm-version 1.27.0-rc1
+```
+
+## Building
 
 ```bash
 pnpm install
 
-npm run dev data/hafbe.json
+pnpm run build
 ```
 
-This shall generate JavaScript and TypeScript declaration files into the `generated` directory
+This shall generate JavaScript files into the `dist` directory
 
-## Testing
+## License
 
-After [generating](#running) you can try it on the live wax instance in the [`wax-test/wax-test.ts`](wax-test/wax-test.ts) file:
-
-```bash
-pnpx tsx wax-test/wax-test.ts
-```
+See the license in the [LICENSE.md](LICENSE.md) file
