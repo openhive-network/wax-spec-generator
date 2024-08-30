@@ -1,5 +1,9 @@
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export const parseOptions = () => yargs(hideBin(process.argv))
   .option("namespace", {
@@ -23,7 +27,7 @@ export const parseOptions = () => yargs(hideBin(process.argv))
   .option("templates-directory", {
     type: "string",
     description: "Path to the templates directory containing files with ETA syntax",
-    default: "./templates"
+    default: resolve(__dirname, "../templates")
   })
   .option("emit-npm-project", {
     alias: "e",
