@@ -7,6 +7,8 @@
   "packageManager": "pnpm@9.1.1+sha256.9551e803dcb7a1839fdf5416153a844060c7bce013218ce823410532504ac10b",
   "type": "module",
   "scripts": {
+    "lint": "eslint src --ext .js,.ts --max-warnings=0 --ignore-pattern *.d.ts --fix",
+    "prebuild": "husky install",
     "build": "tsc",
     "postbuild": "chmod +x dist/index.js",
     "start": "dist/index.js"
@@ -23,6 +25,11 @@
   "devDependencies": {
     "@types/node": "18",
     "@types/yargs": "^17.0.33",
+    "@typescript-eslint/eslint-plugin": "8.3.0",
+    "@typescript-eslint/parser": "8.3.0",
+    "eslint": "8.57.0",
+    "eslint-plugin-import": "^2.29.1",
+    "husky": "^9.1.5",
     "typescript": "^5.5.4"
   },
   "exports": {

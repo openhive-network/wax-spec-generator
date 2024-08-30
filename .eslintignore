@@ -1,0 +1,7 @@
+node_modules
+data
+dist
+generated
+templates
+.eslintrc.js
+tsconfig.tsbuildinfo

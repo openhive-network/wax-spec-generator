@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+
+scripts/precommit_hook.sh
+
+npx lint-staged
