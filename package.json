@@ -52,8 +52,8 @@
   "files": [
     "LICENSE.md",
     "README.md",
-    "dist",
-    "templates"
+    "dist/**/*.js",
+    "templates/**/*.eta"
   ],
   "repository": {
     "type": "git",
