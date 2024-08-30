@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import fs from "node:fs";
-import { generate } from "./generator.js";
-import { makePathAbsolute } from "./utils/paths.js";
-import { prepareNpmPackage } from "./npm.js";
-import { parseOptions } from "./parse-options.js";
+import { generate }from "./generator.js";
+import { prepareNpmPackage }from "./npm.js";
+import { parseOptions }from "./parse-options.js";
+import { makePathAbsolute }from "./utils/paths.js";
 
 const argv = await parseOptions();
 

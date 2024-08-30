@@ -1,20 +1,20 @@
-import { EOL } from "node:os";
-import { indentCharacter, indentCount } from "../constants.js";
+import { EOL }from "node:os";
+import { indentCharacter, indentCount }from "../constants.js";
 
-export const camelize = (str: string) => str.replace(/-./g, node => node[1].toUpperCase());
+export const camelize = (str: string): string => str.replace(/-./g, node => node[1].toUpperCase());
 
 export const stringifyObjectWithUnstringifiedKeys = (keys: string[], obj: any, lastIndentation = 0): string => {
   if (typeof obj !== "object")
     return JSON.stringify(obj).replaceAll(EOL, indentCharacter.repeat(lastIndentation) + EOL);
 
-  let json = "{" + EOL;
+  let json = `{${  EOL}`;
 
   const keysInObj = Object.keys(obj);
-  for(let i = 0; i < keysInObj.length; ++i) {
+  for (let i = 0; i < keysInObj.length; ++i) {
     if (i > 0)
-      json += "," + EOL;
+      json += `,${  EOL}`;
 
-    json += indentCharacter.repeat(lastIndentation) + `${keysInObj[i]}: `;
+    json += `${indentCharacter.repeat(lastIndentation)  }${keysInObj[i]}: `;
 
     if (keys.includes(keysInObj[i]))
       json += String(obj[keysInObj[i]]).replaceAll(EOL, EOL + indentCharacter.repeat(lastIndentation));
@@ -22,5 +22,5 @@ export const stringifyObjectWithUnstringifiedKeys = (keys: string[], obj: any, l
       json += stringifyObjectWithUnstringifiedKeys(keys, obj[keysInObj[i]], lastIndentation + indentCount);
   }
 
-  return json + EOL + indentCharacter.repeat(lastIndentation - indentCount) + "}";
+  return `${json + EOL + indentCharacter.repeat(lastIndentation - indentCount)  }}`;
 };

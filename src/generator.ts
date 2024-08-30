@@ -1,11 +1,11 @@
 import fs from "node:fs";
+import { EOL }from "node:os";
 import path from "node:path";
-import { EOL } from "node:os";
-import { generateApi } from "swagger-typescript-api";
-import { stringifyObjectWithUnstringifiedKeys } from "./utils/text.js";
-import { fileEncoding, indentCount } from "./constants.js";
-import { onCreateRoute } from "./hooks/on-create-route.js";
-import { addNamespace } from "./utils/object.js";
+import { generateApi }from "swagger-typescript-api";
+import { fileEncoding, indentCount }from "./constants.js";
+import { onCreateRoute }from "./hooks/on-create-route.js";
+import { addNamespace }from "./utils/object.js";
+import { stringifyObjectWithUnstringifiedKeys }from "./utils/text.js";
 
 export interface IGeneratorConfig {
   inputFile: string;
@@ -17,14 +17,14 @@ export interface IGeneratorConfig {
   namespace?: string;
 }
 
-export const generate = async (config: IGeneratorConfig): Promise<void> => {
+export const generate = async(config: IGeneratorConfig): Promise<void> => {
   config.outputFilePrefix ??= "index";
 
   const result: Record<string, any> = {};
   const runtimeDataResult: Record<string, any> = {};
 
   if (!fs.existsSync(config.inputFile))
-    throw new Error('Specified schema file does not exist on your system');
+    throw new Error("Specified schema file does not exist on your system");
 
   const { files } = await generateApi({
     input: config.inputFile,
@@ -38,7 +38,7 @@ export const generate = async (config: IGeneratorConfig): Promise<void> => {
       printWidth: 120,
       tabWidth: 2,
       trailingComma: "all",
-      parser: "typescript",
+      parser: "typescript"
     },
     cleanOutput: false,
     enumNamesAsValues: false,
@@ -48,29 +48,29 @@ export const generate = async (config: IGeneratorConfig): Promise<void> => {
     modular: true,
     fixInvalidTypeNamePrefix: "Type",
     fixInvalidEnumKeyPrefix: "Value",
-    primitiveTypeConstructs: (constructs) => ({
+    primitiveTypeConstructs: constructs => ({
       ...constructs,
       string: {
-        $default: 'string',
-        "date-time": 'string',
-      },
+        "$default": "string",
+        "date-time": "string"
+      }
     }),
     hooks: {
       onCreateRoute: onCreateRoute.bind(undefined, result, runtimeDataResult)
-    },
+    }
   });
 
   // Create declarations file
   const outDeclarationsPath = path.join(config.outputDirectory, `${config.outputFilePrefix}.d.ts`);
-  fs.writeFileSync(outDeclarationsPath, 'type TEmptyReq = {}' + EOL, { encoding: fileEncoding });
+  fs.writeFileSync(outDeclarationsPath, `type TEmptyReq = {}${  EOL}`, { encoding: fileEncoding });
   files.forEach(({ fileContent }) => {
     fs.appendFileSync(outDeclarationsPath, fileContent, { encoding: fileEncoding });
   });
   fs.appendFileSync(
     outDeclarationsPath,
-    EOL + "type TWaxRestAPiExtended = "
-      + stringifyObjectWithUnstringifiedKeys(['result','params'], addNamespace(result, config.namespace), indentCount)
-      + EOL + "declare var WaxExtendedData: TWaxRestAPiExtended" + EOL + "export default WaxExtendedData" + EOL,
+    `${EOL  }type TWaxRestAPiExtended = ${
+      stringifyObjectWithUnstringifiedKeys([ "result", "params" ], addNamespace(result, config.namespace), indentCount)
+    }${EOL  }declare var WaxExtendedData: TWaxRestAPiExtended${  EOL  }export default WaxExtendedData${  EOL}`,
     { encoding: fileEncoding }
   );
 
@@ -78,7 +78,7 @@ export const generate = async (config: IGeneratorConfig): Promise<void> => {
   const outSourcePath = path.join(config.outputDirectory, `${config.outputFilePrefix}.js`);
   fs.writeFileSync(
     outSourcePath,
-    "export default " + stringifyObjectWithUnstringifiedKeys([], addNamespace(runtimeDataResult, config.namespace), indentCount) + EOL,
+    `export default ${  stringifyObjectWithUnstringifiedKeys([], addNamespace(runtimeDataResult, config.namespace), indentCount)  }${EOL}`,
     { encoding: fileEncoding }
   );
 };

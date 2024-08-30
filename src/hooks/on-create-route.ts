@@ -1,13 +1,12 @@
-import { type ParsedRoute } from "swagger-typescript-api";
-import { EOL } from "node:os";
-import { camelize } from "../utils/text.js";
-import { indentCharacter, indentCount } from "../constants.js";
+import { EOL }from "node:os";
+import { type ParsedRoute }from "swagger-typescript-api";
+import { indentCharacter, indentCount }from "../constants.js";
+import { camelize }from "../utils/text.js";
 
-export const onCreateRoute = (result: Record<string, any>, runtimeDataResult: Record<string, any>, routeData: ParsedRoute) => {
+export const onCreateRoute = (result: Record<string, any>, runtimeDataResult: Record<string, any>, routeData: ParsedRoute): undefined => {
+  const { type } = routeData.response;
 
-  const type = routeData.response.type;
-
-  const routeParts = routeData.raw.route.split('/').filter(node => node.length);
+  const routeParts = routeData.raw.route.split("/").filter(node => node.length);
 
   let currObj = result;
   let currObjRuntime = runtimeDataResult;
@@ -15,12 +14,12 @@ export const onCreateRoute = (result: Record<string, any>, runtimeDataResult: Re
   let urlPathName: string;
   let camelCaseName: string;
 
-  for(const el of routeParts) {
+  for (const el of routeParts) {
     camelCaseName = camelize(el);
 
-    urlPathName = el.startsWith('{') ? camelCaseName : el;
+    urlPathName = el.startsWith("{") ? camelCaseName : el;
 
-    const normalizedName = camelCaseName.startsWith('{') ? camelCaseName.slice(1, -1) : camelCaseName;
+    const normalizedName = camelCaseName.startsWith("{") ? camelCaseName.slice(1, -1) : camelCaseName;
 
     if (currObj[normalizedName] === undefined) {
       currObjRuntime[normalizedName] = {};
@@ -36,12 +35,13 @@ export const onCreateRoute = (result: Record<string, any>, runtimeDataResult: Re
   // No query and path params (set params to undefined to allow generation of function with no arguments)
   if ((routeData.request as any).pathParams === undefined && (routeData.request as any).query === undefined)
     currObj.params = undefined;
-  else { // Either query params or no query params, but path params exist, so use TEmptyReq - {}
-    currObj.params = (((routeData.request as any).requestParams?.typeName) ?? 'TEmptyReq')
-      + (` & {${EOL}${
-        (routeData.request as any).parameters.map(({name, optional, type, description}) => `${indentCharacter.repeat(indentCount)}/** ${description} */${EOL}${indentCharacter.repeat(indentCount)}${name}${optional?'?':''}: ${type};${EOL}`).join(EOL)
-      }}`);
-  }
+  else // Either query params or no query params, but path params exist, so use TEmptyReq - {}
+    currObj.params = `${((routeData.request as any).requestParams?.typeName) ?? "TEmptyReq"
+    } & {${EOL}${
+      (routeData.request as any).parameters.map(node => `${indentCharacter.repeat(indentCount)}/** ${node.description} */${EOL}${
+        indentCharacter.repeat(indentCount) + node.name + (node.optional ? "?" : "")
+      }: ${node.type};${EOL}`).join(EOL)
+    }}`;
 
   return undefined;
 };

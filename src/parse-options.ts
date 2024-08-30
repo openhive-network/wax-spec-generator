@@ -1,7 +1,7 @@
+import { dirname, resolve }from "node:path";
+import { fileURLToPath }from "node:url";
 import yargs from "yargs";
-import { hideBin } from "yargs/helpers";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { hideBin }from "yargs/helpers";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 

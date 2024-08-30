@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
-import { Eta } from "eta";
-import { fileEncoding } from "./constants.js";
-import { makePathAbsolute } from "./utils/paths.js";
+import { Eta }from "eta";
+import { fileEncoding }from "./constants.js";
+import { makePathAbsolute }from "./utils/paths.js";
 
 export interface INpmPackageConfig {
   outputDirectory: string;
