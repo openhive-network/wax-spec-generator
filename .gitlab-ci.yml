@@ -1,0 +1,65 @@
+stages:
+  - .pre
+  - build
+  - deploy
+
+variables:
+  GIT_DEPTH: 0
+  GIT_STRATEGY: clone
+  GIT_SUBMODULE_STRATEGY: recursive
+  # uses registry.gitlab.syncad.com/hive/hive/ci-base-image:ubuntu22.04-8
+  CI_BASE_IMAGE_TAG: "@sha256:924cb31153b5512ef0263ac18ea57d0d36559a284154ee081e8d6b3e68b4b640"
+  CI_BASE_IMAGE: "registry.gitlab.syncad.com/hive/hive/ci-base-image${CI_BASE_IMAGE_TAG}"
+
+include:
+  - project: 'hive/common-ci-configuration'
+    ref: b815ab817eed8e640e206a97f704aa7d56d6ef50
+    file:
+      - '/templates/npm_projects.gitlab-ci.yml'
+
+image: "${CI_BASE_IMAGE}"
+
+default:
+  tags:
+    - public-runner-docker
+
+lint:
+  stage: .pre
+  extends: .npm_based_job_base
+  script:
+    - npm run lint-ci
+
+build:
+  stage: build
+  extends: .npm_build_template
+  variables:
+    DIST_DIR: "$CI_PROJECT_DIR/dist"
+    NPM_PACKAGE_SCOPE: "@hiveio"
+    NPM_PACKAGE_NAME: "wax-spec-generator"
+  artifacts:
+    paths:
+      - "${DIST_DIR}/*.tgz"
+
+    when: always
+    expire_in: 1 week
+
+deploy_dev_package:
+  stage: deploy
+  extends: .npm_deploy_package_template
+  variables:
+    PACKAGE_TGZ_PATH: "${BUILT_PACKAGE_PATH}"
+    NPM_PACKAGE_SCOPE: "@hiveio"
+  needs:
+    - job: lint
+    - job: build
+
+deploy_production_public_npm:
+  stage: deploy
+  extends: .registry_npmjs_org_deploy_package_template
+  variables:
+    NPM_PUBLISH_TOKEN: "$INTERNAL_HIDDEN_PUBLISH_TOKEN"
+    NPM_PACKAGE_NAME: "wax-spec-generator"
+    PACKAGE_TGZ_PATH: "${BUILT_PACKAGE_PATH}"
+  needs:
+    - job: lint
+    - job: build

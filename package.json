@@ -7,7 +7,8 @@
   "packageManager": "pnpm@9.1.1+sha256.9551e803dcb7a1839fdf5416153a844060c7bce013218ce823410532504ac10b",
   "type": "module",
   "scripts": {
-    "lint": "eslint src --ext .js,.ts --max-warnings=0 --ignore-pattern *.d.ts --fix",
+    "lint": "npm run lint-ci -- --fix",
+    "lint-ci": "eslint src --ext .js,.ts --max-warnings=0 --ignore-pattern *.d.ts",
     "prebuild": "husky install",
     "build": "tsc",
     "postbuild": "chmod +x dist/index.js",
