@@ -46,7 +46,8 @@ export const prepareNpmPackage = (config: INpmPackageConfig): void => {
   const templatesDirectory = makePathAbsolute(config.templatesDirectory);
 
   const eta = new Eta({ views: templatesDirectory });
-  const etaData = { displayName, description, name, version };
+  const year = new Date().getFullYear();
+  const etaData = { displayName, description, name, version, year };
 
   fs.writeFileSync(path.join(config.outputDirectory, "package.json"), JSON.stringify(packageJson, undefined, 2), { encoding: fileEncoding });
 
