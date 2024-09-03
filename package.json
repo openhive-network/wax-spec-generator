@@ -9,7 +9,7 @@
   "scripts": {
     "lint": "npm run lint-ci -- --fix",
     "lint-ci": "eslint src --ext .js,.ts --max-warnings=0 --ignore-pattern *.d.ts",
-    "prebuild": "husky install",
+    "prebuild": "husky",
     "build": "tsc",
     "postbuild": "chmod +x dist/index.js",
     "start": "dist/index.js"
