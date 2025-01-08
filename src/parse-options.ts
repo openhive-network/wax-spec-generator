@@ -9,8 +9,9 @@ export const parseOptions = () => yargs(hideBin(process.argv))
   .option("namespace", {
     alias: "N",
     type: "string",
-    description: "Optional namespace name for the application - adds a nested level of object with given namespace name for all of the parsed API definitions",
-    default: ""
+    description: "Optional namespace name for the application - adds a nested level of object with given namespace name for all of the parsed API definitions."
+      + " Sets the namespace to the server URL if not provided or leaves empty if server URL is not present in the Swagger file",
+    default: undefined
   })
   .option("input-file", {
     alias: "i",
