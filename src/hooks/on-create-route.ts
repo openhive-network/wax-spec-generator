@@ -22,7 +22,9 @@ export const onCreateRoute = (result: Record<string, any>, runtimeDataResult: Re
     const normalizedName = camelCaseName.startsWith("{") ? camelCaseName.slice(1, -1) : camelCaseName;
 
     if (currObj[normalizedName] === undefined) {
-      currObjRuntime[normalizedName] = {};
+      currObjRuntime[normalizedName] = {
+        urlPath: camelCaseName
+      };
       currObj[normalizedName] = {};
     }
     currObj = currObj[normalizedName];
