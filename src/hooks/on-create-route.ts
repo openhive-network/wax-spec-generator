@@ -1,7 +1,7 @@
-import { EOL }from "node:os";
-import { type ParsedRoute }from "swagger-typescript-api";
-import { indentCharacter, indentCount }from "../constants.js";
-import { camelize }from "../utils/text.js";
+import { EOL } from "node:os";
+import { type ParsedRoute } from "swagger-typescript-api";
+import { indentCharacter, indentCount } from "../constants.js";
+import { camelize } from "../utils/text.js";
 
 export const onCreateRoute = (result: Record<string, any>, runtimeDataResult: Record<string, any>, routeData: ParsedRoute): undefined => {
   const { type } = routeData.response;

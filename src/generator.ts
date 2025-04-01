@@ -1,11 +1,11 @@
 import fs from "node:fs";
-import { EOL }from "node:os";
+import { EOL } from "node:os";
 import path from "node:path";
-import { generateApi }from "swagger-typescript-api";
-import { fileEncoding, indentCount }from "./constants.js";
-import { onCreateRoute }from "./hooks/on-create-route.js";
-import { addNamespace }from "./utils/object.js";
-import { stringifyObjectWithUnstringifiedKeys }from "./utils/text.js";
+import { generateApi } from "swagger-typescript-api";
+import { fileEncoding, indentCount } from "./constants.js";
+import { onCreateRoute } from "./hooks/on-create-route.js";
+import { addNamespace } from "./utils/object.js";
+import { stringifyObjectWithUnstringifiedKeys } from "./utils/text.js";
 
 export interface IGeneratorConfig {
   inputFile: string;

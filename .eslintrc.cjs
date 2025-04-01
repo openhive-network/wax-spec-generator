@@ -149,7 +149,7 @@ module.exports = {
     "max-len":                         [ 1, { code: 160 } ],
     "arrow-spacing":                   [ 1, { before: true, after: true } ],
     "semi-spacing":                    [ 1, { before: false, after: true } ],
-    "keyword-spacing":                 [ 1, { before: false, after: true } ],
+    "keyword-spacing":                 [ 1, { before: true, after: true } ],
     "computed-property-spacing":       [ 1, "never", { enforceForClassMembers: false } ],
     "comma-dangle":                      2,
     "comma-spacing":                     2,

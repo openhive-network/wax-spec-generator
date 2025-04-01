@@ -1,5 +1,5 @@
-import { EOL }from "node:os";
-import { indentCharacter, indentCount }from "../constants.js";
+import { EOL } from "node:os";
+import { indentCharacter, indentCount } from "../constants.js";
 
 const reservedWords = new Set([
   "break",

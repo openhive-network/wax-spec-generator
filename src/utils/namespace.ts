@@ -7,7 +7,7 @@ export const parseNamespace = (swaggerFilePath: string): string | undefined => {
     const jsonContent = JSON.parse(content);
 
     return jsonContent.servers[0].url.split("/").pop();
-  }catch {
+  } catch {
     return undefined;
   }
 };
