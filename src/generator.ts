@@ -69,7 +69,7 @@ export const generate = async(config: IGeneratorConfig): Promise<void> => {
   fs.appendFileSync(
     outDeclarationsPath,
     `${EOL  }type TWaxRestAPiExtended = ${
-      stringifyObjectWithUnstringifiedKeys([ "result", "params" ], addNamespace(result, config.namespace), indentCount)
+      stringifyObjectWithUnstringifiedKeys([ "result", "params" ], addNamespace(result, config.namespace, false), indentCount)
     }${EOL  }declare var WaxExtendedData: TWaxRestAPiExtended${  EOL  }export default WaxExtendedData${  EOL}`,
     { encoding: fileEncoding }
   );
@@ -78,7 +78,7 @@ export const generate = async(config: IGeneratorConfig): Promise<void> => {
   const outSourcePath = path.join(config.outputDirectory, `${config.outputFilePrefix}.js`);
   fs.writeFileSync(
     outSourcePath,
-    `export default ${  stringifyObjectWithUnstringifiedKeys([], addNamespace(runtimeDataResult, config.namespace), indentCount)  }${EOL}`,
+    `export default ${  stringifyObjectWithUnstringifiedKeys([], addNamespace(runtimeDataResult, config.namespace, true), indentCount)  }${EOL}`,
     { encoding: fileEncoding }
   );
 };
