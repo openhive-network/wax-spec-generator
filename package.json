@@ -4,7 +4,7 @@
   "description": "Wax library REST API specification generator",
   "main": "dist/index.js",
   "private": false,
-  "packageManager": "pnpm@9.1.1+sha256.9551e803dcb7a1839fdf5416153a844060c7bce013218ce823410532504ac10b",
+  "packageManager": "pnpm@10.0.0+sha512.b8fef5494bd3fe4cbd4edabd0745df2ee5be3e4b0b8b08fa643aa3e4c6702ccc0f00d68fa8a8c9858a735a0032485a44990ed2810526c875e416f001b17df12b",
   "type": "module",
   "scripts": {
     "lint": "npm run lint-ci -- --fix",
