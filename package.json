@@ -16,9 +16,9 @@
   },
   "license": "SEE LICENSE IN LICENSE.md",
   "dependencies": {
-    "eta": "^3.5.0",
-    "swagger-typescript-api": "^13.0.22",
-    "yargs": "^17.7.2"
+    "eta": "3.5.0",
+    "swagger-typescript-api": "13.0.22",
+    "yargs": "17.7.2"
   },
   "bin": {
     "generate-wax-spec": "dist/index.js"
