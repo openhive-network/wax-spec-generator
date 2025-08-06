@@ -52,22 +52,22 @@ def test_endpoint_methods_created(api_type: str) -> None:
 def test_api_methods_signature(api_type: str) -> None:
     # ARRANGE & ACT
     if api_type == "async":
-        from tests.manual_definition.generated_async_single_api import TestApi # type: ignore[import-untyped]
+        from tests.manual_definition.generated_async_single_api import TestApi  # type: ignore[import-untyped]
     else:
-        from tests.manual_definition.generated_sync_single_api import TestApi # type: ignore[import-untyped]
+        from tests.manual_definition.generated_sync_single_api import TestApi  # type: ignore[import-untyped]
 
     test_api_instance = TestApi()
 
     # ASSERT
-    assert (
-        get_type_hints(test_api_instance.first_endpoint) == VALID_PARAMS_FOR_FIRST_AND_SECOND_ENDPOINT
-    ), "First test endpoint signature is invalid"
-    assert (
-        get_type_hints(test_api_instance.second_endpoint) == VALID_PARAMS_FOR_FIRST_AND_SECOND_ENDPOINT
-    ), "Second test endpoint signature is invalid"
-    assert (
-        get_type_hints(test_api_instance.third_endpoint) == VALID_PARAMS_FOR_THIRD_ENDPOINT
-    ), "Third test endpoint signature is invalid"
+    assert get_type_hints(test_api_instance.first_endpoint) == VALID_PARAMS_FOR_FIRST_AND_SECOND_ENDPOINT, (
+        "First test endpoint signature is invalid"
+    )
+    assert get_type_hints(test_api_instance.second_endpoint) == VALID_PARAMS_FOR_FIRST_AND_SECOND_ENDPOINT, (
+        "Second test endpoint signature is invalid"
+    )
+    assert get_type_hints(test_api_instance.third_endpoint) == VALID_PARAMS_FOR_THIRD_ENDPOINT, (
+        "Third test endpoint signature is invalid"
+    )
 
 
 def test_sync_api_return_values() -> None:
@@ -90,7 +90,7 @@ async def test_async_api_return_values() -> None:
 
     # ASSERT
     assert await test_api_instance.first_endpoint() == VALID_RETURN_VALUE, "First test endpoint returned invalid value"
-    assert (
-        await test_api_instance.second_endpoint() == VALID_RETURN_VALUE
-    ), "Second test endpoint returned invalid value"
+    assert await test_api_instance.second_endpoint() == VALID_RETURN_VALUE, (
+        "Second test endpoint returned invalid value"
+    )
     assert await test_api_instance.third_endpoint() == VALID_RETURN_VALUE, "Third test endpoint returned invalid value"

@@ -56,21 +56,21 @@ def test_endpoint_methods_created(api_type: str) -> None:
 def test_api_methods_signature(api_type: str) -> None:
     # ARRANGE & ACT
     if api_type == "async":
-        from tests.swagger.json_rpc.generated_async_api import ( # type: ignore[import-untyped]
+        from tests.swagger.json_rpc.generated_async_api import (  # type: ignore[import-untyped]
             TestApi,
         )
     else:
-        from tests.swagger.json_rpc.generated_sync_api import TestApi # type: ignore[import-untyped]
+        from tests.swagger.json_rpc.generated_sync_api import TestApi  # type: ignore[import-untyped]
 
     test_api_instance = TestApi()
 
     # ASSERT
-    assert (
-        get_type_hints(test_api_instance.first_endpoint) == VALID_PARAMS_FOR_FIRST_ENDPOINT
-    ), "First test endpoint generated from swagger signature is invalid"
+    assert get_type_hints(test_api_instance.first_endpoint) == VALID_PARAMS_FOR_FIRST_ENDPOINT, (
+        "First test endpoint generated from swagger signature is invalid"
+    )
 
     second_endpoint_type_hints = get_type_hints(test_api_instance.second_endpoint)
 
-    assert (
-        second_endpoint_type_hints == get_valid_params_for_second_endpoint()
-    ), "Second test endpoint generated from swagger signature is invalid"
+    assert second_endpoint_type_hints == get_valid_params_for_second_endpoint(), (
+        "Second test endpoint generated from swagger signature is invalid"
+    )

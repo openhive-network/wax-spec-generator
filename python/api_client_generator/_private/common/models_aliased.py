@@ -51,9 +51,9 @@ class BaseApiClass(Protocol):
 
 def ensure_is_importable(potential_importable: Any) -> Importable:
     """Ensure that the object is importable."""
-    assert hasattr(potential_importable, "__module__") and hasattr(
-        potential_importable, "__name__"
-    ), f"Object {potential_importable} is not importable. It must have __module__ and __name__ attributes."
+    assert hasattr(potential_importable, "__module__") and hasattr(potential_importable, "__name__"), (
+        f"Object {potential_importable} is not importable. It must have __module__ and __name__ attributes."
+    )
     return cast(Importable, potential_importable)
 
 

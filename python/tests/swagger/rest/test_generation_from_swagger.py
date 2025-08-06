@@ -71,10 +71,10 @@ def test_api_methods_signature(api_type: str) -> None:
     test_balances_endpoint_type_hints = get_type_hints(test_api_instance.test_balances)
 
     # ASSERT
-    assert (
-        test_balances_endpoint_type_hints == valid_params_for_balances_endpoint
-    ), "Test balances endpoint generated from swagger signature is invalid"
+    assert test_balances_endpoint_type_hints == valid_params_for_balances_endpoint, (
+        "Test balances endpoint generated from swagger signature is invalid"
+    )
 
-    assert (
-        test_2_endpoint_type_hints == valid_params_for_test_2_endpoint
-    ), "Test 2 endpoint generated from swagger signature is invalid"
+    assert test_2_endpoint_type_hints == valid_params_for_test_2_endpoint, (
+        "Test 2 endpoint generated from swagger signature is invalid"
+    )

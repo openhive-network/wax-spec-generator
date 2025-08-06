@@ -69,9 +69,9 @@ def test_api_methods_signature(api_type: str) -> None:
     api_collection = GeneratedCollection()
 
     # ASSERT
-    assert (
-        get_type_hints(api_collection.first_test_api.first_endpoint) == VALID_PARAMS_FOR_FIRST_AND_SECOND_ENDPOINT
-    ), "First test endpoint signature is invalid"
+    assert get_type_hints(api_collection.first_test_api.first_endpoint) == VALID_PARAMS_FOR_FIRST_AND_SECOND_ENDPOINT, (
+        "First test endpoint signature is invalid"
+    )
     assert (
         get_type_hints(api_collection.first_test_api.second_endpoint) == VALID_PARAMS_FOR_FIRST_AND_SECOND_ENDPOINT
     ), "Second test endpoint signature is invalid"
@@ -90,16 +90,16 @@ def test_sync_api_return_values() -> None:
     api_collection = GeneratedSyncApiCollection()
 
     # ASSERT
-    assert (
-        api_collection.first_test_api.first_endpoint() == VALID_RETURN_VALUE
-    ), "First test endpoint returned invalid value"
-    assert (
-        api_collection.first_test_api.second_endpoint() == VALID_RETURN_VALUE
-    ), "Second test endpoint returned invalid value"
+    assert api_collection.first_test_api.first_endpoint() == VALID_RETURN_VALUE, (
+        "First test endpoint returned invalid value"
+    )
+    assert api_collection.first_test_api.second_endpoint() == VALID_RETURN_VALUE, (
+        "Second test endpoint returned invalid value"
+    )
 
-    assert (
-        api_collection.second_test_api.first_endpoint() == VALID_RETURN_VALUE
-    ), "First test endpoint returned invalid value"
+    assert api_collection.second_test_api.first_endpoint() == VALID_RETURN_VALUE, (
+        "First test endpoint returned invalid value"
+    )
 
 
 async def test_async_api_return_values() -> None:
@@ -109,13 +109,13 @@ async def test_async_api_return_values() -> None:
     api_collection = GeneratedAsyncApiCollection()
 
     # ASSERT
-    assert (
-        await api_collection.first_test_api.first_endpoint() == VALID_RETURN_VALUE
-    ), "First test endpoint returned invalid value"
-    assert (
-        await api_collection.first_test_api.second_endpoint() == VALID_RETURN_VALUE
-    ), "Second test endpoint returned invalid value"
+    assert await api_collection.first_test_api.first_endpoint() == VALID_RETURN_VALUE, (
+        "First test endpoint returned invalid value"
+    )
+    assert await api_collection.first_test_api.second_endpoint() == VALID_RETURN_VALUE, (
+        "Second test endpoint returned invalid value"
+    )
 
-    assert (
-        await api_collection.second_test_api.first_endpoint() == VALID_RETURN_VALUE
-    ), "First test endpoint returned invalid value"
+    assert await api_collection.second_test_api.first_endpoint() == VALID_RETURN_VALUE, (
+        "First test endpoint returned invalid value"
+    )
