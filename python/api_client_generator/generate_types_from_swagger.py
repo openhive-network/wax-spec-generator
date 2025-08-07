@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from datamodel_code_generator import DataModelType, InputFileType, PythonVersion, generate
 
@@ -10,10 +11,16 @@ from api_client_generator._private.resolve_needed_imports import (
     find_package_root,
 )
 
+if TYPE_CHECKING:
+    from typing import Unpack
+
+    from api_client_generator._private.datamodel_generator_signature import DataModelCodeGeneratorOptions
+
 
 def generate_types_from_swagger(
     openapi_api_definition: str | Path,
     output: str | Path,
+    **additional_options_for_datamodel_code_generator: Unpack[DataModelCodeGeneratorOptions],
 ) -> None:
     """
     Generate types defined in Swagger.
@@ -21,6 +28,10 @@ def generate_types_from_swagger(
     Args:
         openapi_api_definition: The OpenAPI JSON definition file path.
         output: The output file / package path where the generated types will be saved.
+        **additional_options_for_datamodel_code_generator: Additional options to pass to the
+            datamodel_code_generator.generate function. See DataModelCodeGeneratorOptions
+            for available options including base_class, custom_class_name_generator,
+            validation, field_constraints, and many others.
 
     Notes:
         The generated types will be saved in the specified output directory, and relative imports will be fixed
@@ -29,8 +40,8 @@ def generate_types_from_swagger(
     Raises:
         FileNotFoundError: If the OpenAPI definition file does not exist.
     """
-    openapi_file = openapi_api_definition if isinstance(openapi_api_definition, Path) else Path(openapi_api_definition)
-    output = output if isinstance(output, Path) else Path(output)
+    openapi_file = Path(openapi_api_definition)
+    output = Path(output)
 
     if not openapi_file.exists():
         raise FileNotFoundError(f"File {openapi_file} does not exist.")
@@ -44,6 +55,7 @@ def generate_types_from_swagger(
         use_standard_collections=True,
         use_exact_imports=True,
         target_python_version=PythonVersion.PY_311,  # Use 3.11 to avoid PEP 695 type statements (not compatible with exec_module)
+        **additional_options_for_datamodel_code_generator,
     )
 
     package_root = find_package_root(output)
