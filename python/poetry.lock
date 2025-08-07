@@ -114,14 +114,14 @@ markers = {main = "platform_system == \"Windows\"", dev = "sys_platform == \"win
 
 [[package]]
 name = "datamodel-code-generator"
-version = "0.30.1"
+version = "0.32.0"
 description = "Datamodel Code Generator"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "datamodel_code_generator-0.30.1-py3-none-any.whl", hash = "sha256:9601dfa3da8aa8d8d54e182059f78836b1768a807d5c26df798db12d4054c8f3"},
-    {file = "datamodel_code_generator-0.30.1.tar.gz", hash = "sha256:d125012face4cd1eca6c9300297a1f5775a9d5ff8fc3f68d34d0944a7beea105"},
+    {file = "datamodel_code_generator-0.32.0-py3-none-any.whl", hash = "sha256:48f3cabbb792398112ee756b23a319e17b001ee534896b324893a98ff10e0a55"},
+    {file = "datamodel_code_generator-0.32.0.tar.gz", hash = "sha256:c6f84a6a7683ef9841940b0931aa1ee338b19950ba5b10c920f9c7ad6f5e5b72"},
 ]
 
 [package.dependencies]
@@ -883,4 +883,4 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "69025f3463892383874825793edbe5fcb3dc17ea7ec85e53f3918e23d6bea29e"
+content-hash = "d750fa0ff39a19ecb4b3cf7cbd74462bc885a02b9fffc82afc39323313aa92bd"
