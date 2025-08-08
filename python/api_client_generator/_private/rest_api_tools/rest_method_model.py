@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from msgspec import Struct, field
+from typing import Any
 
-from api_client_generator._private.common.models_aliased import AnyJson
+from msgspec import Struct, field
 
 
 class RestApiMethod(Struct):
@@ -10,6 +10,6 @@ class RestApiMethod(Struct):
     summary: str
     description: str
     operationId: str  # NOQA: N815
-    responses: AnyJson
-    parameters: list[AnyJson] | None = None
-    x_response_headers: list[AnyJson] | None = field(name="x-response-headers", default=None)
+    responses: Any
+    parameters: Any | None = None
+    x_response_headers: Any | None = field(name="x-response-headers", default=None)
