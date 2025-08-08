@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import msgspec
+
 from api_client_generator._private.common.converters import snake_to_camel
 from api_client_generator._private.common.models_aliased import SwaggerReadyForExtraction
 from api_client_generator._private.common.openapi_to_python_type import convert_openapi_type_to_python_type
@@ -64,7 +66,7 @@ def create_endpoints_for_all_url_paths(
             else:
                 response = convert_openapi_type_to_python_type(response_schema["type"])
 
-            method = RestApiMethod(**path[method_type])
+            method = msgspec.convert(path[method_type], RestApiMethod)
 
             endpoints.append(
                 create_endpoint(method_name, url_path, method, response, method_type, asynchronous=asynchronous)
