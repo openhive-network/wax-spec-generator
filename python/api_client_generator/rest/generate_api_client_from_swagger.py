@@ -51,15 +51,18 @@ def generate_api_client_from_swagger(  # NOQA: PLR0913
     openapi_file = openapi_api_definition if isinstance(openapi_api_definition, Path) else Path(openapi_api_definition)
     output_package = output_package if isinstance(output_package, Path) else Path(output_package)
 
-    generate_types_from_swagger(openapi_api_definition, output_package)
-
     openapi = json.loads(openapi_file.read_text())
+    types_generated = False  # Flag to check if types were generated from the Swagger definition
+    module_path = None
+
+    if openapi.get("components") is not None:  # Situation when swagger not contains components is possible
+        generate_types_from_swagger(openapi_api_definition, output_package)
+        types_generated = True
+        types_module_name = get_types_name_from_components(openapi)
+        module_path = output_package / f"{types_module_name}.py"
 
     server_url = get_api_name_from_server_property(openapi)
     api_name = hyphen_to_snake(server_url)
-
-    types_module_name = get_types_name_from_components(openapi)
-    module_path = output_package / f"{types_module_name}.py"
 
     endpoints = create_endpoints_for_all_url_paths(openapi, asynchronous=asynchronous)
 
@@ -67,10 +70,11 @@ def generate_api_client_from_swagger(  # NOQA: PLR0913
         api_name,
         server_url,
         endpoints,
-        module_path,
         base_class,
         base_class_source,
+        module_path,
         endpoint_decorator,
+        types_generated=types_generated,
     )
 
     client_module = ast.Module(body=[*class_and_imports.imports, class_and_imports.class_def], type_ignores=[])
