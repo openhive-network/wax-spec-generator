@@ -43,6 +43,7 @@ from api_client_generator._private.description_tools import (
     get_params_name_for_endpoint,
     get_result_name_for_endpoint,
     is_result_array,
+    get_last_part_of_ref,
 )
 from api_client_generator._private.export_client_module_to_file import export_module_to_file
 from api_client_generator.generate_types_from_swagger import generate_types_from_swagger
@@ -107,7 +108,14 @@ def generate_api_description(
             endpoint_description["response_array"] = True
 
             assert isinstance(endpoint_description["result"], str), "Result must be a string at this point."
-            endpoint_description["result"] += "Item"  # It will be typed as list[ClasNameResponseItem]
+
+            potential_ref = components[result_name].get("items", {}).get("$ref")
+            if potential_ref:  # This means that the elements of the array are represented by a custom class/model/components, which are contained in the components section.
+                endpoint_description["result"] = snake_to_camel(
+                    get_last_part_of_ref(components[result_name]["items"]["$ref"])
+                )
+            else:
+                endpoint_description["result"] += "Item"
 
         api_description[api_name][endpoint_name] = endpoint_description
 
