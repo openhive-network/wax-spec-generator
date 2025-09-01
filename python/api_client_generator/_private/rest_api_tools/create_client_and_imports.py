@@ -27,12 +27,13 @@ def create_client_and_imports(  # NOQA: PLR0913
     api_name: str,
     server_url: str,
     endpoints: CreatedEndpoints,
-    types_module_path: str | Path,
     base_class: type[BaseApiClass] | str,
     base_class_source: str | None = None,
+    types_module_path: str | Path | None = None,
     endpoint_decorator: str = DEFAULT_ENDPOINT_REST_DECORATOR_NAME,
     additional_items_to_import: Sequence[Importable] | None = None,
     already_imported: list[str] | None = None,
+    types_generated: bool = True,
 ) -> GeneratedClass:
     """
     Create a client class and resolve the needed imports.
@@ -40,13 +41,14 @@ def create_client_and_imports(  # NOQA: PLR0913
     Args:
         api_name: The name of the API.
         server_url: The server URL for the API.
-        types_module_path: The path to the module containing types.
         endpoints: The endpoints description for the API.
         base_class: The base class for the API client.
         base_class_source: The source of the base class.
+        types_module_path: The path to the module containing types.
         endpoint_decorator: The name of the endpoint decorator to be used.
         additional_items_to_import: Additional items to import.
         already_imported: A list of already imported items.
+        types_generated: Whether types have been generated from the Swagger definition.
     """
 
     already_imported = already_imported or []
@@ -61,17 +63,19 @@ def create_client_and_imports(  # NOQA: PLR0913
     base_class_name = base_class if isinstance(base_class, str) else base_class.__name__
     already_imported.append(base_class_name)
 
-    types_module_path = Path(types_module_path)
-    root = find_package_root(types_module_path)
-    full_module_name = compute_full_module_name(types_module_path, root)
+    if types_generated:
+        assert types_module_path is not None, "types_module_path must be provided when types are generated"
+        types_module_path = Path(types_module_path)
+        root = find_package_root(types_module_path)
+        full_module_name = compute_full_module_name(types_module_path, root)
 
-    needed_imports.append(
-        ast.ImportFrom(
-            module=full_module_name,
-            names=[ast.alias(name="*")],
-            level=DEFAULT_IMPORT_LEVEL,
+        needed_imports.append(
+            ast.ImportFrom(
+                module=full_module_name,
+                names=[ast.alias(name="*")],
+                level=DEFAULT_IMPORT_LEVEL,
+            )
         )
-    )
 
     additional_imports = import_classes(additional_items_to_import or [], already_imported)
     needed_imports.extend(additional_imports)
