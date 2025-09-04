@@ -60,12 +60,8 @@ build:
     DIST_DIR: "$CI_PROJECT_DIR/dist"
     NPM_PACKAGE_SCOPE: "@hiveio"
     NPM_PACKAGE_NAME: "wax-spec-generator"
-  artifacts:
-    paths:
-      - "${DIST_DIR}/*.tgz"
-
-    when: always
-    expire_in: 1 week
+  needs:
+    - job: lint
 
 build_wheel:
   stage: build
@@ -84,6 +80,7 @@ deploy_dev_package:
   needs:
     - job: lint
     - job: build
+      artifacts: true
 
 deploy_production_public_npm:
   stage: deploy
@@ -93,8 +90,9 @@ deploy_production_public_npm:
     NPM_PACKAGE_NAME: "wax-spec-generator"
     PACKAGE_TGZ_PATH: "${BUILT_PACKAGE_PATH}"
   needs:
-    - job: lint
+    - job: deploy_dev_package
     - job: build
+      artifacts: true
 
 deploy_wheel_to_gitlab:
   stage: deploy
