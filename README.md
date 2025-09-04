@@ -1,6 +1,6 @@
 # Wax spec generator
 
-Wax library REST API specification generator
+Wax library REST/JSON-RPC API specification generator
 
 No-download example usage:
 
@@ -45,13 +45,13 @@ npx generate-wax-spec --help
 #### generate JS and D.TS files only using the hafbe namsepace
 
 ```bash
-npx generate-wax-spec -i data/hafbe.json -N hafbe
+npx generate-wax-spec -i data/hafbe.json -N hafbe -T rest
 ```
 
 #### Emit entire npm project along the JS and D.TS files
 
 ```bash
-npx generate-wax-spec -i data/hafbe.json -N hafbe -e --npm-name "@hiveio/wax-api-hafbe" --npm-version 1.27.0-rc1
+npx generate-wax-spec -i data/hafbe.json -N hafbe -T rest -e --npm-name "@hiveio/wax-api-hafbe" --npm-version 1.27.0-rc1
 ```
 
 ## Building

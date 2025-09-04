@@ -14,13 +14,16 @@ const outputDirectory = makePathAbsolute(argv.outputDirectory);
 if (!fs.existsSync(outputDirectory))
   fs.mkdirSync(outputDirectory);
 
-const namespace = argv.namespace ?? parseNamespace(inputFile);
+const apiType = argv.apiType as "jsonrpc" | "rest";
+
+const namespace = typeof argv.addNamespace === "undefined" ? undefined : (argv.addNamespace || parseNamespace(inputFile));
 
 if (argv.emitNpmProject) {
   if (argv.npmName === undefined || argv.npmVersion === undefined)
     throw new Error("Trying to create npm project without npm package name and/or version");
 
   prepareNpmPackage({
+    apiType,
     outputDirectory,
     version: argv.npmVersion,
     name: argv.npmName,
@@ -30,6 +33,7 @@ if (argv.emitNpmProject) {
 }
 
 await generate({
+  apiType,
   inputFile,
   outputDirectory,
   namespace
