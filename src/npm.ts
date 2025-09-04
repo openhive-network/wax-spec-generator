@@ -5,6 +5,7 @@ import { fileEncoding } from "./constants.js";
 import { makePathAbsolute } from "./utils/paths.js";
 
 export interface INpmPackageConfig {
+  apiType: "jsonrpc" | "rest";
   outputDirectory: string;
   name: string;
   version: string;
@@ -14,7 +15,7 @@ export interface INpmPackageConfig {
 
 export const prepareNpmPackage = (config: INpmPackageConfig): void => {
   const displayName = config.namespace?.length > 0 ? `${config.namespace} API definitions` : config.name;
-  const description = `Wax REST API definitions${(config.namespace.length > 0 ? " for " : "")}${(config.namespace || "")}`;
+  const description = `Wax REST API definitions${(config.namespace?.length > 0 ? " for " : "")}${(config.namespace || "")}`;
   const { name, version } = config;
 
   const packageJson = {
@@ -47,7 +48,7 @@ export const prepareNpmPackage = (config: INpmPackageConfig): void => {
 
   const eta = new Eta({ views: templatesDirectory });
   const year = new Date().getFullYear();
-  const etaData = { displayName, description, name, version, year };
+  const etaData = { apiType: config.apiType, displayName, description, name, version, year };
 
   fs.writeFileSync(path.join(config.outputDirectory, "package.json"), JSON.stringify(packageJson, undefined, 2), { encoding: fileEncoding });
 

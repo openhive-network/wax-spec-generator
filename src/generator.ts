@@ -8,6 +8,7 @@ import { addNamespace } from "./utils/object.js";
 import { stringifyObjectWithUnstringifiedKeys } from "./utils/text.js";
 
 export interface IGeneratorConfig {
+  apiType: "jsonrpc" | "rest";
   inputFile: string;
   outputDirectory: string;
   /**
@@ -56,7 +57,7 @@ export const generate = async(config: IGeneratorConfig): Promise<void> => {
       }
     }),
     hooks: {
-      onCreateRoute: onCreateRoute.bind(undefined, result, runtimeDataResult)
+      onCreateRoute: onCreateRoute.bind(undefined, config.apiType, result, runtimeDataResult)
     }
   });
 
@@ -68,9 +69,9 @@ export const generate = async(config: IGeneratorConfig): Promise<void> => {
   });
   fs.appendFileSync(
     outDeclarationsPath,
-    `${EOL  }type TWaxRestAPiExtended = ${
+    `${EOL  }type TWaxExtended = ${
       stringifyObjectWithUnstringifiedKeys([ "result", "params" ], addNamespace(result, config.namespace, false), indentCount)
-    }${EOL  }declare var WaxExtendedData: TWaxRestAPiExtended${  EOL  }export default WaxExtendedData${  EOL}`,
+    }${EOL  }declare var WaxExtendedData: TWaxExtended${  EOL  }export default WaxExtendedData${  EOL}`,
     { encoding: fileEncoding }
   );
 

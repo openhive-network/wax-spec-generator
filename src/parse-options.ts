@@ -6,12 +6,21 @@ import { hideBin } from "yargs/helpers";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export const parseOptions = () => yargs(hideBin(process.argv))
-  .option("namespace", {
+  .option("add-namespace", {
     alias: "N",
     type: "string",
-    description: "Optional namespace name for the application - adds a nested level of object with given namespace name for all of the parsed API definitions."
-      + " Sets the namespace to the server URL if not provided or leaves empty if server URL is not present in the Swagger file",
-    default: undefined
+    description: "Namespace name for the application - adds a nested level of object with given namespace name for all of the parsed API definitions."
+      + " Sets the namespace to the server URL if implicitly set (--add-namespace). Usually, when dealing with JSON-RPC APIs, the namespace would be "
+      + "left empty, as the methods are globally available. For REST APIs, it's recommended to set the namespace to avoid potential name clashes. "
+      + "In most cases, the namespace can be automatically deduced from the input file name, so you can just use --add-namespace without a value.",
+    implies: ""
+  })
+  .option("api-type", {
+    alias: "T",
+    type: "string",
+    description: "API type for the application - specifies the type of API being defined. Affects the way the definitions are generated.",
+    choices: [ "jsonrpc", "rest" ],
+    default: "rest"
   })
   .option("input-file", {
     alias: "i",
