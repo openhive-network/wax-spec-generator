@@ -12,7 +12,6 @@ from api_client_generator._private.common.models_aliased import (
 )
 from api_client_generator._private.json_rpc_tools.api_name_tools import (
     get_api_name_from_description,
-    validate_api_name,
 )
 from api_client_generator._private.json_rpc_tools.create_client_and_imports import (
     create_client_and_imports,
@@ -49,7 +48,6 @@ def create_single_client_module(  # NOQA: PLR0913
     """
 
     api_name = get_api_name_from_description(api_description)
-    validate_api_name(api_name)
     endpoints = api_description.get(api_name)
     assert endpoints is not None, "API description must contain endpoints"
     generated_client = create_client_and_imports(

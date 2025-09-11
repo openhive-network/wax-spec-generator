@@ -128,6 +128,10 @@ def generate_api_description(
 
         api_description[api_name][endpoint_name] = endpoint_description
 
+    if "-" in api_description_name:
+        api_description_name = api_description_name.replace(
+            "-", "_"
+        )  # at this point, we want only valid python identifiers to assign the description dict to properly named variable
     description_module = create_api_description_module(api_description_name, api_description, additional_aliases)
 
     export_module_to_file(

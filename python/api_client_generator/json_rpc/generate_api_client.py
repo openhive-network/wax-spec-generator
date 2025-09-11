@@ -88,7 +88,7 @@ def generate_api_client(  # NOQA: PLR0913
         legacy_args_serialization=legacy_args_serialization,
     )
 
-    api_name = get_api_name_from_description(api_description)  # Already validated in the `create_single_client_module`
+    api_name = get_api_name_from_description(api_description).replace("-", "_")
 
     file_path = Path(f"{api_name}_client.py") if path is None else path
     export_module_to_file(client_module, file_path=file_path)
