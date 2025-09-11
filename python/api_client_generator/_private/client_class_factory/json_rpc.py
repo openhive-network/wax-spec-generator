@@ -23,6 +23,7 @@ def create_api_client(
     endpoint_decorator: str = DEFAULT_ENDPOINT_JSON_RPC_DECORATOR_NAME,
     *,
     asynchronous: bool = True,
+    legacy_args_serialization: bool = False,
 ) -> ast.ClassDef:
     """
     Creates a client class for the given API name and endpoints.
@@ -34,6 +35,7 @@ def create_api_client(
         base_class: The base class for the API client.
         endpoint_decorator: The name of the endpoint decorator to be used.
         asynchronous: If True, the endpoints will be created as asynchronous methods.
+        legacy_args_serialization: If True, endpoint arguments will be `posonlyargs`.
     """
 
     return common_create_api_client(
@@ -43,4 +45,5 @@ def create_api_client(
         base_class,
         endpoint_decorator,
         asynchronous=asynchronous,
+        legacy_args_serialization=legacy_args_serialization,
     )

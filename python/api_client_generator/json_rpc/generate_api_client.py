@@ -24,6 +24,7 @@ def generate_api_client(  # NOQA: PLR0913
     additional_items_to_import: Sequence[Importable] | None = None,
     *,
     asynchronous: bool = True,
+    legacy_args_serialization: bool = False,
 ) -> None:
     """
     Generate an API client class based on the provided API name, description, and type and save it to a file.
@@ -36,6 +37,7 @@ def generate_api_client(  # NOQA: PLR0913
         endpoint_decorator: Name of the decorator to be used for the endpoint.
         additional_items_to_import: Additional items to import in the module.
         asynchronous: If True, the endpoints will be created as asynchronous methods.
+        legacy_args_serialization: If True, endpoint arguments will be `posonlyargs`.
 
     Notes:
         Your script must be run with the `-m` flag to ensure that the module is executed as a script.
@@ -83,6 +85,7 @@ def generate_api_client(  # NOQA: PLR0913
         endpoint_decorator,
         additional_items_to_import,
         asynchronous=asynchronous,
+        legacy_args_serialization=legacy_args_serialization,
     )
 
     api_name = get_api_name_from_description(api_description)  # Already validated in the `create_single_client_module`

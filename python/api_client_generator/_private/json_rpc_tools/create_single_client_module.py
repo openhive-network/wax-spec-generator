@@ -28,6 +28,7 @@ def create_single_client_module(  # NOQA: PLR0913
     additional_items_to_import: Sequence[Importable] | None = None,
     *,
     asynchronous: bool = True,
+    legacy_args_serialization: bool = False,
 ) -> ast.Module:
     """
     Generate an API client class based on the provided API name, description, and type.
@@ -40,6 +41,7 @@ def create_single_client_module(  # NOQA: PLR0913
         endpoint_decorator: The name of the endpoint decorator to be used.
         additional_items_to_import(: Additional things to import in the created module.
         asynchronous: If True, the endpoints will be created as asynchronous methods.
+        legacy_args_serialization: If True, endpoint arguments will be `posonlyargs`.
 
     Raises:
         AssertionError: If the API description does not contain endpoints.
@@ -59,6 +61,7 @@ def create_single_client_module(  # NOQA: PLR0913
         endpoint_decorator,
         additional_items_to_import,
         asynchronous=asynchronous,
+        legacy_args_serialization=legacy_args_serialization,
     )
 
     return ast.Module(

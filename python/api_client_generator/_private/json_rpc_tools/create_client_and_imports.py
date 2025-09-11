@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Sequence
 
+from api_client_generator._private.common.array_handle import is_param_array
 from api_client_generator._private.common.defaults import DEFAULT_ENDPOINT_JSON_RPC_DECORATOR_NAME
 from api_client_generator._private.common.generated_class import GeneratedClass
 from api_client_generator._private.common.models_aliased import (
@@ -18,6 +19,11 @@ from api_client_generator._private.resolve_needed_imports import (
     is_struct,
 )
 from api_client_generator.exceptions import EndpointParamsIsNotMsgspecStructError
+from api_client_generator._private.common.array_handle import (
+    extract_module_path,
+    cut_from_bracket_to_dot,
+    extract_inner_type,
+)
 
 if TYPE_CHECKING:
     import ast
@@ -34,6 +40,7 @@ def create_client_and_imports(  # NOQA: PLR0913
     already_imported: list[str] | None = None,
     *,
     asynchronous: bool = True,
+    legacy_args_serialization: bool = False,
 ) -> GeneratedClass:
     """
     Create a client class and resolve the needed imports.
@@ -48,6 +55,7 @@ def create_client_and_imports(  # NOQA: PLR0913
         additional_items_to_import: Additional items to import.
         already_imported: A list of already imported items.
         asynchronous: If True, the endpoints will be created as asynchronous methods.
+        legacy_args_serialization: If True, endpoint arguments will be `posonlyargs`.
 
     Raises:
         EndpointParamsIsNotDataclassError: If the endpoint parameters are not a dataclass.
@@ -65,6 +73,22 @@ def create_client_and_imports(  # NOQA: PLR0913
     for params in endpoints.values():
         if params.get("params") is not None:
             extracted_params = params.get("params")
+
+            if is_param_array(extracted_params):
+                stringified = str(extracted_params)
+                module, class_name = (
+                    extract_module_path(stringified),
+                    extract_inner_type(cut_from_bracket_to_dot(stringified)),
+                )
+
+                if not module:  # it's a built-in type
+                    continue
+
+                assert class_name is not None, f"Could not extract class name from {stringified}"
+                import_stmt = import_class(class_name, module)
+                assert import_stmt is not None, f"Could not import {class_name} from {module}"
+                needed_params_import.append(import_stmt)
+                continue
 
             if extracted_params is not None and not is_struct(extracted_params):
                 raise EndpointParamsIsNotMsgspecStructError
@@ -84,6 +108,13 @@ def create_client_and_imports(  # NOQA: PLR0913
         needed_imports.append(base_class_import)
 
     return GeneratedClass(
-        client_class_factory(api_name, endpoints, base_class, endpoint_decorator, asynchronous=asynchronous),
+        client_class_factory(
+            api_name,
+            endpoints,
+            base_class,
+            endpoint_decorator,
+            asynchronous=asynchronous,
+            legacy_args_serialization=legacy_args_serialization,
+        ),
         needed_imports,
     )

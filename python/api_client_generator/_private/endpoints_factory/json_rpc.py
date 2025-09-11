@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import ast
+from typing import Any
 
 from msgspec import NODEFAULT, Struct
 from msgspec.structs import fields
 
+from api_client_generator._private.common.array_handle import is_param_array, get_array_ready_for_annotation
 from api_client_generator._private.common.defaults import DEFAULT_ENDPOINT_JSON_RPC_DECORATOR_NAME
 from api_client_generator._private.common.models_aliased import Importable
 from api_client_generator._private.endpoints_factory.common import (
@@ -23,6 +25,7 @@ def create_endpoint(  # NOQA: PLR0913
     *,
     response_array: bool = False,
     asynchronous: bool = True,
+    legacy_args_serialization: bool = False,
 ) -> ast.AsyncFunctionDef | ast.FunctionDef:
     """
     Create JSON-RPC endpoint method.
@@ -35,6 +38,7 @@ def create_endpoint(  # NOQA: PLR0913
         description: The description of the endpoint.
         response_array: If True, the result type will be a list of the result type.
         asynchronous: If True, the endpoint will be created as an asynchronous method.
+        legacy_args_serialization: If True, endpoint arguments will be `posonlyargs`.
 
     Notice:
         Please note that the `params` argument is expected to be a msgspec struct.
@@ -48,7 +52,7 @@ def create_endpoint(  # NOQA: PLR0913
 
     return create_endpoint_common(
         name,
-        get_endpoint_args(params),
+        get_endpoint_args(params, legacy_args_serialization=legacy_args_serialization),
         endpoint_decorator,
         result,
         description,
@@ -57,12 +61,13 @@ def create_endpoint(  # NOQA: PLR0913
     )
 
 
-def get_endpoint_args(params: Struct | None) -> ast.arguments:
+def get_endpoint_args(params: Struct | list[Any] | None, *, legacy_args_serialization: bool = False) -> ast.arguments:
     """
     Generate arguments for the json-rpc api endpoint method.
 
     Args:
         params: The msgspec struct representing the parameters for the API endpoint.
+        legacy_args_serialization: If True, endpoint arguments will be `posonlyargs`.
 
     Returns:
         ast.arguments: The arguments for the API endpoint method.
@@ -83,8 +88,18 @@ def get_endpoint_args(params: Struct | None) -> ast.arguments:
     if params is None:
         return arguments
 
-    kwonlyargs: list[ast.arg] = []
+    endpoints_args: list[ast.arg] = []  # For legacy API's -> all posonlyargs, for new API's -> all kwonlyargs
     defaults: list[ast.expr | None] = []
+
+    if is_param_array(params) or isinstance(params, list):  # Special case for array parameters -> legacy endpoints
+        endpoints_args.append(
+            ast.arg(
+                arg="array_param",
+                annotation=ast.Name(id=get_array_ready_for_annotation(params)),
+            )
+        )
+        arguments.posonlyargs = endpoints_args
+        return arguments
 
     if not is_struct(params):
         raise EndpointParamsIsNotMsgspecStructError
@@ -95,13 +110,18 @@ def get_endpoint_args(params: Struct | None) -> ast.arguments:
         else:
             defaults.append(None)
 
-        kwonlyargs.append(
+        endpoints_args.append(
             ast.arg(
                 arg=param.name,
                 annotation=ast.Name(id=param.type.__name__),
             )
         )
 
-    arguments.kwonlyargs = kwonlyargs
+    if legacy_args_serialization:
+        arguments.posonlyargs = endpoints_args
+        arguments.defaults = defaults  # type: ignore[assignment]
+        return arguments
+
+    arguments.kwonlyargs = endpoints_args
     arguments.kw_defaults = defaults
     return arguments

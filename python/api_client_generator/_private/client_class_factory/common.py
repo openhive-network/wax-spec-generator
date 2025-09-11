@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+from typing import Final
 
 from api_client_generator._private.common.converters import snake_to_camel
 from api_client_generator._private.common.models_aliased import (
@@ -8,8 +9,12 @@ from api_client_generator._private.common.models_aliased import (
     EndpointsDescription,
     EndpointsFactory,
 )
+from api_client_generator._private.common.array_handle import is_param_array
 from api_client_generator._private.resolve_needed_imports import is_struct
 from api_client_generator.exceptions import EndpointParamsIsNotMsgspecStructError
+
+
+ARGUMENTS_LEGACY_SERIALIZATION_POSONLY_CODE: Final[int] = 1
 
 
 def create_api_client(  # NOQA: PLR0913
@@ -20,6 +25,7 @@ def create_api_client(  # NOQA: PLR0913
     endpoint_decorator: str,
     *,
     asynchronous: bool = True,
+    legacy_args_serialization: bool = False,
 ) -> ast.ClassDef:
     """
     Creates a client class for the given API name and endpoints.
@@ -31,6 +37,7 @@ def create_api_client(  # NOQA: PLR0913
         base_class: The base class for the API client.
         endpoint_decorator: The name of the endpoint decorator to be used.
         asynchronous: If True, the endpoints will be created as asynchronous methods.
+        legacy_args_serialization: If True, endpoint arguments will be `posonlyargs`.
 
     Raises:
         EndpointParamsIsNotDataclassError: If the endpoint parameters are not a dataclass.
@@ -40,7 +47,7 @@ def create_api_client(  # NOQA: PLR0913
     for endpoint_name, endpoint_parameters in endpoints.items():
         params = endpoint_parameters.get("params", None)
 
-        if params is not None and not is_struct(params):
+        if params is not None and not (is_struct(params) or is_param_array(params)):
             raise EndpointParamsIsNotMsgspecStructError(endpoint_name)
 
         result = endpoint_parameters.get("result", None)
@@ -56,6 +63,7 @@ def create_api_client(  # NOQA: PLR0913
                 str(description) if description else None,
                 response_array=response_array,
                 asynchronous=asynchronous,
+                legacy_args_serialization=legacy_args_serialization,
             )
         )
 
@@ -68,6 +76,17 @@ def create_api_client(  # NOQA: PLR0913
             attr=endpoint_decorator,
         ),
     )
+
+    if legacy_args_serialization:
+        methods.append(
+            ast.FunctionDef(  # type: ignore[call-overload]
+                name="argument_serialization",
+                args=ast.arg(arg="self"),
+                returns=ast.Name(id="int"),
+                body=[ast.Return(value=ast.Constant(value=1))],
+                decorator_list=[],
+            )
+        )
 
     body: list[ast.stmt] = [endpoint_decorator_assign, *methods]
 

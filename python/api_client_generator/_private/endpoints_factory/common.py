@@ -35,7 +35,10 @@ def create_endpoint(  # NOQA: PLR0913
     Returns:
         ast.AsyncFunctionDef | ast.FunctionDef: The AST representation of the endpoint method.
     """
-    endpoint_arguments.args.insert(0, ast.arg(arg="self"))
+    self_arg = ast.arg(arg="self")
+    endpoint_arguments.posonlyargs.insert(
+        0, self_arg
+    ) if endpoint_arguments.posonlyargs else endpoint_arguments.args.insert(0, self_arg)
     body: list[ast.stmt] = [
         ast.Expr(value=ast.Constant(value=Ellipsis))
         if not description

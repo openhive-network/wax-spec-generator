@@ -37,6 +37,7 @@ class EndpointsFactory(Protocol):
         *,
         response_array: bool,
         asynchronous: bool,
+        legacy_args_serialization: bool,
     ) -> ast.AsyncFunctionDef | ast.FunctionDef: ...
 
 
@@ -66,4 +67,5 @@ class ClientClassFactory(Protocol):
         endpoint_decorator: str,
         *,
         asynchronous: bool,
+        legacy_args_serialization: bool,
     ) -> ast.ClassDef: ...
