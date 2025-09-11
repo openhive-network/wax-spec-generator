@@ -53,8 +53,10 @@ def generate_api_description(
     api_description_name: str,
     openapi_api_definition: str | Path,
     output_file: str | Path,
+    openapi_flattened_definition: str | Path | None = None,
     additional_aliases: tuple[AliasToAssign] | None = None,
     apis_to_skip: Container[str] | None = None,
+    allow_passing_item_suffix: bool = True,
 ) -> None:
     """
     Generate an API description based on the provided OpenAPI definition.
@@ -63,8 +65,11 @@ def generate_api_description(
         api_description_name: The name of the API description to be generated.
         openapi_api_definition: The OpenAPI JSON definition file path.
         output_file: The file where the generated API description will be saved.
+        openapi_flattened_definition: The flattened OpenAPI JSON definition file path. If provided, it will be used to
+                                      generate the types instead of the original definition.
         additional_aliases: Additional aliases to be used in the API description.
         apis_to_skip: APIs to skip during the generation process.
+        allow_passing_item_suffix: Whether to allow passing the "Item" suffix for array response types.
 
     Raises:
         FileNotFoundError: If the OpenAPI definition file does not exist.
@@ -72,8 +77,12 @@ def generate_api_description(
     openapi_api_definition = (
         openapi_api_definition if isinstance(openapi_api_definition, Path) else Path(openapi_api_definition)
     )
+    openapi_flattened_definition = Path(openapi_flattened_definition) if openapi_flattened_definition else None
     output_file = output_file if isinstance(output_file, Path) else Path(output_file)
-    generate_types_from_swagger(openapi_api_definition, output_file)
+    generate_types_from_swagger(
+        openapi_flattened_definition if openapi_flattened_definition is not None else openapi_api_definition,
+        output_file,
+    )
 
     api_description: ApiDescriptionBeforeProcessing = {}
 
@@ -114,7 +123,7 @@ def generate_api_description(
                 endpoint_description["result"] = snake_to_camel(
                     get_last_part_of_ref(components[result_name]["items"]["$ref"])
                 )
-            else:
+            elif allow_passing_item_suffix:
                 endpoint_description["result"] += "Item"
 
         api_description[api_name][endpoint_name] = endpoint_description
