@@ -47,6 +47,7 @@ from api_client_generator._private.description_tools import (
 )
 from api_client_generator._private.export_client_module_to_file import export_module_to_file
 from api_client_generator.generate_types_from_swagger import generate_types_from_swagger
+from api_client_generator.json_rpc.clean_openapi import clean_file
 
 
 def generate_api_description(
@@ -132,7 +133,20 @@ def generate_api_description(
         api_description_name = api_description_name.replace(
             "-", "_"
         )  # at this point, we want only valid python identifiers to assign the description dict to properly named variable
+
     description_module = create_api_description_module(api_description_name, api_description, additional_aliases)
+    used_models: set[str] = set()
+
+    for api in api_description.values():
+        for endpoint in api.values():
+            params = endpoint.get("params")
+            result = endpoint.get("result")
+            if params and params != "None":
+                used_models.add(params)  # type: ignore
+            if result:
+                used_models.add(result)  # type: ignore
+
+    clean_file(output_file, used_models)
 
     export_module_to_file(
         description_module,
