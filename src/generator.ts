@@ -65,7 +65,9 @@ export const generate = async(config: IGeneratorConfig): Promise<void> => {
   const outDeclarationsPath = path.join(config.outputDirectory, `${config.outputFilePrefix}.d.ts`);
   fs.writeFileSync(outDeclarationsPath, `type TEmptyReq = {}${  EOL}`, { encoding: fileEncoding });
   files.forEach(({ fileContent }) => {
-    fs.appendFileSync(outDeclarationsPath, fileContent, { encoding: fileEncoding });
+    const normalizedDeclarationsContent = fileContent.replace(/([:=,|([&<>]\s*)\bobject\b/g, "$1Record<string, any>");
+
+    fs.appendFileSync(outDeclarationsPath, normalizedDeclarationsContent, { encoding: fileEncoding });
   });
   fs.appendFileSync(
     outDeclarationsPath,
