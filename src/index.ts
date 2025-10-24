@@ -36,5 +36,6 @@ await generate({
   apiType,
   inputFile,
   outputDirectory,
-  namespace
+  namespace,
+  camelize: argv.camelize
 });

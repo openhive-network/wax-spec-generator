@@ -12,8 +12,7 @@ export const parseOptions = () => yargs(hideBin(process.argv))
     description: "Namespace name for the application - adds a nested level of object with given namespace name for all of the parsed API definitions."
       + " Sets the namespace to the server URL if implicitly set (--add-namespace). Usually, when dealing with JSON-RPC APIs, the namespace would be "
       + "left empty, as the methods are globally available. For REST APIs, it's recommended to set the namespace to avoid potential name clashes. "
-      + "In most cases, the namespace can be automatically deduced from the input file name, so you can just use --add-namespace without a value.",
-    implies: ""
+      + "In most cases, the namespace can be automatically deduced from the input file name, so you can just use --add-namespace without a value."
   })
   .option("api-type", {
     alias: "T",
@@ -44,6 +43,12 @@ export const parseOptions = () => yargs(hideBin(process.argv))
     type: "boolean",
     description: "When enabled, generates package.json file in the output directory, for the project to be pushed",
     default: false
+  })
+  // We are using --camelize instead of --no-camelize as yargs adds "no" prefix automatically for boolean options!
+  .option("camelize", {
+    type: "boolean",
+    description: "Enables camelCase conversion for the generated names - converts all of the generated type and interface names to camelCase format",
+    default: true
   })
   .option("npm-name", {
     type: "string",

@@ -1,12 +1,12 @@
 import { camelize } from "./text.js";
 
-export const addNamespace = (obj: Record<string, any>, namespace?: string, isRuntime: boolean = false): Record<string, any> => {
+export const addNamespace = (obj: Record<string, any>, shouldCamelize: boolean, namespace?: string, isRuntime: boolean = false): Record<string, any> => {
   if (namespace !== undefined && namespace.length > 0)
     return isRuntime ? {
-      [camelize(namespace)]: obj,
+      [shouldCamelize ? camelize(namespace) : namespace]: obj,
       urlPath: namespace
     } : {
-      [camelize(namespace)]: obj
+      [shouldCamelize ? camelize(namespace) : namespace]: obj
     };
 
   return obj;

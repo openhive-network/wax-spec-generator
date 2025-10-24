@@ -15,6 +15,7 @@ export interface IGeneratorConfig {
    * @default "index"
    */
   outputFilePrefix?: string;
+  camelize: boolean;
   namespace?: string;
 }
 
@@ -57,7 +58,7 @@ export const generate = async(config: IGeneratorConfig): Promise<void> => {
       }
     }),
     hooks: {
-      onCreateRoute: onCreateRoute.bind(undefined, config.apiType, result, runtimeDataResult)
+      onCreateRoute: onCreateRoute.bind(undefined, config.apiType, config.camelize, result, runtimeDataResult)
     }
   });
 
@@ -71,9 +72,9 @@ export const generate = async(config: IGeneratorConfig): Promise<void> => {
   });
   fs.appendFileSync(
     outDeclarationsPath,
-    `${EOL  }type TWaxExtended = ${
-      stringifyObjectWithUnstringifiedKeys([ "result", "params" ], addNamespace(result, config.namespace, false), indentCount)
-    }${EOL  }declare var WaxExtendedData: TWaxExtended${  EOL  }export default WaxExtendedData${  EOL}`,
+    `${EOL}type TWaxExtended = ${
+      stringifyObjectWithUnstringifiedKeys([ "result", "params" ], addNamespace(result, config.camelize, config.namespace, false), indentCount)
+    }${EOL}declare var WaxExtendedData: TWaxExtended${EOL}export default WaxExtendedData${EOL}`,
     { encoding: fileEncoding }
   );
 
@@ -81,7 +82,11 @@ export const generate = async(config: IGeneratorConfig): Promise<void> => {
   const outSourcePath = path.join(config.outputDirectory, `${config.outputFilePrefix}.js`);
   fs.writeFileSync(
     outSourcePath,
-    `export default ${  stringifyObjectWithUnstringifiedKeys([], addNamespace(runtimeDataResult, config.namespace, true), indentCount)  }${EOL}`,
+    `export default ${  stringifyObjectWithUnstringifiedKeys(
+      [],
+      addNamespace(runtimeDataResult, config.camelize, config.namespace, true),
+      indentCount
+    )}${EOL}`,
     { encoding: fileEncoding }
   );
 };

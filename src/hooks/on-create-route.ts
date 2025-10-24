@@ -5,6 +5,7 @@ import { camelize } from "../utils/text.js";
 
 export const onCreateRoute = (
   apiType: "jsonrpc" | "rest",
+  shouldCamelize: boolean,
   result: Record<string, any>,
   runtimeDataResult: Record<string, any>,
   routeData: ParsedRoute
@@ -22,7 +23,7 @@ export const onCreateRoute = (
   let camelCaseName: string;
 
   for (const el of routeParts) {
-    camelCaseName = camelize(el);
+    camelCaseName = shouldCamelize ? camelize(el) : el;
 
     urlPathName = el.startsWith("{") ? camelCaseName : el;
 
