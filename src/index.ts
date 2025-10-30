@@ -3,20 +3,16 @@ import fs from "node:fs";
 import { generate } from "./generator.js";
 import { prepareNpmPackage } from "./npm.js";
 import { parseOptions } from "./parse-options.js";
-import { parseNamespace } from "./utils/namespace.js";
 import { makePathAbsolute } from "./utils/paths.js";
 
 const argv = await parseOptions();
 
-const inputFile = makePathAbsolute(argv.inputFile);
 const outputDirectory = makePathAbsolute(argv.outputDirectory);
 
 if (!fs.existsSync(outputDirectory))
   fs.mkdirSync(outputDirectory);
 
 const apiType = argv.apiType as "jsonrpc" | "rest";
-
-const namespace = typeof argv.addNamespace === "undefined" ? undefined : (argv.addNamespace || parseNamespace(inputFile));
 
 if (argv.emitNpmProject) {
   if (argv.npmName === undefined || argv.npmVersion === undefined)
@@ -27,15 +23,15 @@ if (argv.emitNpmProject) {
     outputDirectory,
     version: argv.npmVersion,
     name: argv.npmName,
-    namespace,
+    namespace: argv.addNamespace,
     templatesDirectory: argv.templatesDirectory
   });
 }
 
 await generate({
   apiType,
-  inputFile,
+  input: argv.input,
   outputDirectory,
-  namespace,
+  namespace: argv.addNamespace,
   camelize: argv.camelize
 });

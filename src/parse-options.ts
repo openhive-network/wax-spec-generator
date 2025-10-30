@@ -10,9 +10,7 @@ export const parseOptions = () => yargs(hideBin(process.argv))
     alias: "N",
     type: "string",
     description: "Namespace name for the application - adds a nested level of object with given namespace name for all of the parsed API definitions."
-      + " Sets the namespace to the server URL if implicitly set (--add-namespace). Usually, when dealing with JSON-RPC APIs, the namespace would be "
-      + "left empty, as the methods are globally available. For REST APIs, it's recommended to set the namespace to avoid potential name clashes. "
-      + "In most cases, the namespace can be automatically deduced from the input file name, so you can just use --add-namespace without a value."
+      + " For REST APIs, it's recommended to set the namespace to avoid potential name clashes. "
   })
   .option("api-type", {
     alias: "T",
@@ -21,10 +19,10 @@ export const parseOptions = () => yargs(hideBin(process.argv))
     choices: [ "jsonrpc", "rest" ],
     default: "rest"
   })
-  .option("input-file", {
+  .option("input", {
     alias: "i",
     type: "string",
-    description: "Swagger JSON schema input file",
+    description: "Swagger JSON schema input file path or URL",
     demandOption: true
   })
   .option("output-directory", {

@@ -5,11 +5,12 @@ import { generateApi } from "swagger-typescript-api";
 import { fileEncoding, indentCount } from "./constants.js";
 import { onCreateRoute } from "./hooks/on-create-route.js";
 import { addNamespace } from "./utils/object.js";
+import { makePathAbsolute } from "./utils/paths.js";
 import { stringifyObjectWithUnstringifiedKeys } from "./utils/text.js";
 
 export interface IGeneratorConfig {
   apiType: "jsonrpc" | "rest";
-  inputFile: string;
+  input: string;
   outputDirectory: string;
   /**
    * @default "index"
@@ -25,11 +26,18 @@ export const generate = async(config: IGeneratorConfig): Promise<void> => {
   const result: Record<string, any> = {};
   const runtimeDataResult: Record<string, any> = {};
 
-  if (!fs.existsSync(config.inputFile))
+  let inputFileOrUrl: { input: string } | { url: string } | null = null;
+
+  if (fs.existsSync(config.input))
+    inputFileOrUrl = { input: makePathAbsolute(config.input) };
+  else if (config.input.startsWith("http://") || config.input.startsWith("https://"))
+    inputFileOrUrl = { url: config.input };
+  else
     throw new Error("Specified schema file does not exist on your system");
 
+
   const { files } = await generateApi({
-    input: config.inputFile,
+    ...inputFileOrUrl,
     generateClient: false,
     generateRouteTypes: false,
     generateResponses: true,
