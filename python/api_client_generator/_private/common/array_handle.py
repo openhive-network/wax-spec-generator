@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import re
+import types
+import typing as t
 from typing import Any, Final
 
 
@@ -8,80 +9,95 @@ LIST_CLASS_NAME: Final[str] = "<class 'list'>"
 
 
 def is_param_array(param: Any) -> bool:
-    """
-    Check is param array by converting it to the string and  checking presence of the `list` word.
+    """Return True when parameter annotation represents a list."""
 
-    Check is performed this way, as it works with aliased types like `list[str]`, `some_alias = list[str]` as well.
-    """
+    origin = t.get_origin(param)
+    if origin is not None:
+        return origin is list
 
-    return "list" in str(param)
+    if isinstance(param, list) or param is list:
+        return True
+
+    if str(param) == LIST_CLASS_NAME:
+        return True
+
+    if isinstance(param, str):
+        stripped = param.strip()
+        return stripped.startswith("list[") or stripped == "list"
+
+    return False
 
 
 def get_array_ready_for_annotation(param: Any) -> str:
-    """
-    Get array ready for annotation by converting it to the string and removing everything between the first `[` and the first `.` after it, inclusive.
+    """Return a string representation suitable for annotating list parameters."""
 
-    Examples:
-        MyCustomAlias = list[str | int]
+    if isinstance(param, str):
+        stripped = param.strip()
+        if stripped.startswith("list["):
+            return stripped
+        return f"list[{stripped}]"
 
-
-        class SomeClass:
-            ...
-
-        MySecondAlias = list[SomeClass]
-
-        get_array_ready_for_annotation(MyCustomAlias)
-        >>> "list[str | int]"
-
-        get_array_ready_for_annotation(MySecondAlias)
-        >>> "list[SomeAttribute]"
-    """
-    stringified = str(param)
-
-    if stringified == LIST_CLASS_NAME:  # Empty list case, should be annotated as list[str]
+    if param is list or str(param) == LIST_CLASS_NAME:
         return "list[str]"
 
-    return cut_from_bracket_to_dot(str(param))
+    origin = t.get_origin(param)
+    if origin is list:
+        args = t.get_args(param)
+        if not args:
+            return "list[str]"
+
+        inner = _format_annotation(args[0]) if len(args) == 1 else " | ".join(_format_annotation(arg) for arg in args)
+        return f"list[{inner}]"
+
+    return "list[str]"
 
 
-def cut_from_bracket_to_dot(list_as_str: str) -> str:
-    """Replace fully-qualified names inside [...] with just the last identifier."""
+def _format_annotation(annotation: Any) -> str:
+    origin = t.get_origin(annotation)
 
-    def replacer(match):
-        content = match.group(1)
-        return "[" + content.split(".")[-1] + "]"
+    if origin is None:
+        if isinstance(annotation, str):
+            return annotation.split(".")[-1]
 
-    return re.sub(r"\[([^\]]+)\]", replacer, list_as_str)
+        if annotation is type(None):
+            return "None"
+
+        name = getattr(annotation, "__name__", None) or getattr(annotation, "_name", None)
+        if name:
+            return name
+
+        return str(annotation).split(".")[-1]
+
+    args = t.get_args(annotation)
+
+    if origin is list:
+        return f"list[{_format_collection_args(args)}]"
+
+    if origin is tuple:
+        if len(args) == 2 and args[1] is Ellipsis:
+            return f"tuple[{_format_annotation(args[0])}, ...]"
+        return f"tuple[{', '.join(_format_annotation(arg) for arg in args)}]"
+
+    if origin is dict and len(args) == 2:
+        key, value = args
+        return f"dict[{_format_annotation(key)}, {_format_annotation(value)}]"
+
+    if origin is set:
+        return f"set[{_format_collection_args(args)}]"
+
+    if origin in (t.Union, types.UnionType):
+        return " | ".join(_format_annotation(arg) for arg in args)
+
+    origin_name = getattr(origin, "__name__", str(origin))
+    formatted_args = ", ".join(_format_annotation(arg) for arg in args)
+    return f"{origin_name}[{formatted_args}]" if formatted_args else origin_name
 
 
-def extract_module_path(list_as_str: str) -> str:
-    """
-    Extract everything before the last '.' in a dotted path string.
+def _format_collection_args(args: tuple[Any, ...]) -> str:
+    if not args:
+        return "str"
 
-    Example:
-        extract_module_path("some_api.some_api_description.CondenserBroadcastTransactionItem")
-        >>> "some_api.some_api_description"
-    """
-    if "." not in list_as_str:
-        return ""
+    if len(args) == 1:
+        return _format_annotation(args[0])
 
-    splitted = ".".join(list_as_str.split(".")[:-1])
-
-    if splitted.startswith("list["):
-        splitted = splitted.replace("list[", "")
-
-    if "<class '" in splitted:
-        splitted = splitted.replace("<class '", "")
-
-    return splitted
-
-
-def extract_inner_type(list_as_str: str) -> str | None:
-    """
-    Extract the content inside the first [...] pair.
-
-    Example:
-        extract_inner_type("list[some_type]") -> "some_type"
-    """
-    match = re.search(r"\[([^\]]+)\]", list_as_str)
-    return match.group(1) if match else None
+    return " | ".join(_format_annotation(arg) for arg in args)

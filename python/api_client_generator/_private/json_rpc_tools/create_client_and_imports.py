@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Sequence
+import typing as t
+from typing import TYPE_CHECKING, Any, Sequence
 
 from api_client_generator._private.common.array_handle import is_param_array
 from api_client_generator._private.common.defaults import DEFAULT_ENDPOINT_JSON_RPC_DECORATOR_NAME
@@ -19,14 +20,55 @@ from api_client_generator._private.resolve_needed_imports import (
     is_struct,
 )
 from api_client_generator.exceptions import EndpointParamsIsNotMsgspecStructError
-from api_client_generator._private.common.array_handle import (
-    extract_module_path,
-    cut_from_bracket_to_dot,
-    extract_inner_type,
-)
 
 if TYPE_CHECKING:
     import ast
+
+
+def _iter_annotation_leaf_types(annotation: Any) -> t.Iterator[Any]:
+    origin = t.get_origin(annotation)
+
+    if origin is None:
+        yield annotation
+        return
+
+    for arg in t.get_args(annotation):
+        yield from _iter_annotation_leaf_types(arg)
+
+
+def _import_annotation_type(annotation: Any, already_imported: list[str]) -> "ast.ImportFrom" | None:
+    if isinstance(annotation, str):
+        module_name, _, class_name = annotation.rpartition(".")
+
+        if not class_name or not module_name or class_name in already_imported:
+            return None
+
+        import_stmt = import_class(class_name, module_name)
+        if import_stmt:
+            already_imported.append(class_name)
+        return import_stmt
+
+    if not hasattr(annotation, "__module__") or not hasattr(annotation, "__name__"):
+        return None
+
+    if annotation.__module__ == "builtins" or annotation.__name__ in already_imported:
+        return None
+
+    import_stmt = import_class(annotation)
+    if import_stmt:
+        already_imported.append(annotation.__name__)
+    return import_stmt
+
+
+def _collect_generic_type_imports(annotation: Any, already_imported: list[str]) -> list["ast.ImportFrom"]:
+    imports: list["ast.ImportFrom"] = []
+
+    for nested in _iter_annotation_leaf_types(annotation):
+        import_stmt = _import_annotation_type(nested, already_imported)
+        if import_stmt:
+            imports.append(import_stmt)
+
+    return imports
 
 
 def create_client_and_imports(  # NOQA: PLR0913
@@ -75,19 +117,7 @@ def create_client_and_imports(  # NOQA: PLR0913
             extracted_params = params.get("params")
 
             if is_param_array(extracted_params):
-                stringified = str(extracted_params)
-                module, class_name = (
-                    extract_module_path(stringified),
-                    extract_inner_type(cut_from_bracket_to_dot(stringified)),
-                )
-
-                if not module:  # it's a built-in type
-                    continue
-
-                assert class_name is not None, f"Could not extract class name from {stringified}"
-                import_stmt = import_class(class_name, module)
-                assert import_stmt is not None, f"Could not import {class_name} from {module}"
-                needed_params_import.append(import_stmt)
+                needed_params_import.extend(_collect_generic_type_imports(extracted_params, already_imported))
                 continue
 
             if extracted_params is not None and not is_struct(extracted_params):
