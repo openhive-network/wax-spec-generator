@@ -91,7 +91,15 @@ def create_client_and_imports(  # NOQA: PLR0913
     )
     base_url_method = ast.FunctionDef(  # type: ignore[call-overload]
         name="base_path",
-        args=ast.arg(arg="self"),
+        args=ast.arguments(
+            posonlyargs=[],
+            args=[ast.arg(arg="self")],
+            vararg=None,
+            kwonlyargs=[],
+            kw_defaults=[],
+            kwarg=None,
+            defaults=[],
+        ),
         returns=ast.Name(id="str"),
         body=[ast.Return(value=ast.Constant(value="/" + server_url))],
         decorator_list=[],

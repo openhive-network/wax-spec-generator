@@ -81,7 +81,15 @@ def create_api_client(  # NOQA: PLR0913
         methods.append(
             ast.FunctionDef(  # type: ignore[call-overload]
                 name="argument_serialization",
-                args=ast.arg(arg="self"),
+                args=ast.arguments(
+                    posonlyargs=[],
+                    args=[ast.arg(arg="self")],
+                    vararg=None,
+                    kwonlyargs=[],
+                    kw_defaults=[],
+                    kwarg=None,
+                    defaults=[],
+                ),
                 returns=ast.Name(id="int"),
                 body=[ast.Return(value=ast.Constant(value=1))],
                 decorator_list=[],
