@@ -15,6 +15,7 @@ variables:
   CI_BASE_IMAGE: "${PYTHON_IMAGE}"
 
 include:
+  - template: Workflows/Branch-Pipelines.gitlab-ci.yml
   - project: 'hive/common-ci-configuration'
     ref: 8efd11eebb0cf8d95efef436dd23013d2c594c67
     file:
