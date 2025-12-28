@@ -93,11 +93,19 @@ build_wheel:
   needs:
     - job: pre_commit_checks
 
+# Cross-runner compatible: compute local path from filename
+.cross_runner_package_path:
+  before_script:
+    - !reference [.npm_based_job_base, before_script]
+    - PACKAGE_TGZ_PATH="${CI_PROJECT_DIR}/dist/$(basename ${BUILT_PACKAGE_PATH})"
+    - echo "Using package at ${PACKAGE_TGZ_PATH}"
+
 deploy_dev_package:
   stage: deploy
-  extends: .npm_deploy_package_template
+  extends:
+    - .npm_deploy_package_template
+    - .cross_runner_package_path
   variables:
-    PACKAGE_TGZ_PATH: "${BUILT_PACKAGE_PATH}"
     NPM_PACKAGE_SCOPE: "@hiveio"
   needs:
     - job: lint
@@ -106,11 +114,12 @@ deploy_dev_package:
 
 deploy_production_public_npm:
   stage: deploy
-  extends: .registry_npmjs_org_deploy_package_template
+  extends:
+    - .registry_npmjs_org_deploy_package_template
+    - .cross_runner_package_path
   variables:
     NPM_PUBLISH_TOKEN: "$INTERNAL_HIDDEN_PUBLISH_TOKEN"
     NPM_PACKAGE_NAME: "wax-spec-generator"
-    PACKAGE_TGZ_PATH: "${BUILT_PACKAGE_PATH}"
   needs:
     - job: deploy_dev_package
     - job: build
