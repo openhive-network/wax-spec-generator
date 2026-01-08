@@ -15,9 +15,13 @@ def get_valid_params_for_second_endpoint() -> dict[str, type[str] | type[int] | 
     }
 
 
-VALID_PARAMS_FOR_FIRST_ENDPOINT: dict[str, Any] = {
-    "return": str,
-    "some_string": str,
-    "some_integer": int,
-    "some_another_string": str,
-}
+def get_valid_params_for_first_endpoint() -> dict[str, Any]:
+    """Get valid params for the first endpoint generated from the swagger."""
+    from .api_description import FirstEndpointResponse  # type: ignore[import-untyped]
+
+    return {
+        "return": FirstEndpointResponse,
+        "some_string": str,
+        "some_integer": int,
+        "some_another_string": str,
+    }

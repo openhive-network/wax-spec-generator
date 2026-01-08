@@ -11,7 +11,7 @@ from tests.generate_clients_and_collections import (
 )
 from tests.messages import ENDPOINT_IS_NOT_CALLABLE_MESSAGE, ENDPOINT_NOT_GENERATED_MESSAGE
 from tests.swagger.json_rpc.valid_output import (
-    VALID_PARAMS_FOR_FIRST_ENDPOINT,
+    get_valid_params_for_first_endpoint,
     get_valid_params_for_second_endpoint,
 )
 
@@ -65,7 +65,7 @@ def test_api_methods_signature(api_type: str) -> None:
     test_api_instance = TestApi()
 
     # ASSERT
-    assert get_type_hints(test_api_instance.first_endpoint) == VALID_PARAMS_FOR_FIRST_ENDPOINT, (
+    assert get_type_hints(test_api_instance.first_endpoint) == get_valid_params_for_first_endpoint(), (
         "First test endpoint generated from swagger signature is invalid"
     )
 
