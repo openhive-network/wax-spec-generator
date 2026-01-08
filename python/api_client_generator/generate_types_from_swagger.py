@@ -43,7 +43,7 @@ def generate_types_from_swagger(
         use_field_description=True,
         use_standard_collections=True,
         use_exact_imports=True,
-        target_python_version=PythonVersion.PY_314,  # Explicitly target Python 3.14 for proper syntax
+        target_python_version=PythonVersion.PY_311,  # Use 3.11 to avoid PEP 695 type statements (not compatible with exec_module)
     )
 
     package_root = find_package_root(output)
