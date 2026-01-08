@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from datamodel_code_generator import DataModelType, InputFileType, generate
+from datamodel_code_generator import DataModelType, InputFileType, PythonVersion, generate
 
 from api_client_generator._private.resolve_needed_imports import (
     compute_full_module_name,
@@ -43,6 +43,7 @@ def generate_types_from_swagger(
         use_field_description=True,
         use_standard_collections=True,
         use_exact_imports=True,
+        target_python_version=PythonVersion.PY_314,  # Explicitly target Python 3.14 for proper syntax
     )
 
     package_root = find_package_root(output)
