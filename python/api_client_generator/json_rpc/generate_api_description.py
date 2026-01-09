@@ -46,7 +46,11 @@ from api_client_generator._private.description_tools import (
     get_last_part_of_ref,
 )
 from api_client_generator._private.export_client_module_to_file import export_module_to_file
-from api_client_generator.generate_types_from_swagger import generate_types_from_swagger
+from api_client_generator.generate_types_from_swagger import (
+    generate_types_from_swagger,
+    fix_malformed_typealias,
+    fix_forward_references,
+)
 from api_client_generator.json_rpc.clean_openapi import clean_file
 
 
@@ -148,8 +152,15 @@ def generate_api_description(
 
     clean_file(output_file, used_models)
 
+    # Apply fixes after clean_file to ensure they're not lost
+    fix_malformed_typealias(output_file)
+
     export_module_to_file(
         description_module,
         mode="a",
         file_path=output_file,
     )
+
+    # Final pass: remove any remaining TypeAlias with undefined references
+    # This handles cases where clean_file couldn't remove them
+    fix_forward_references(output_file)
