@@ -25,7 +25,11 @@ def is_struct(potential_struct: Any) -> bool:
     Returns:
         bool: True if the class is a msgspec struct, False otherwise.
     """
-    return issubclass(potential_struct, Struct)
+    try:
+        return issubclass(potential_struct, Struct)
+    except TypeError:
+        # potential_struct is not a class (e.g., it's a TypeAlias)
+        return False
 
 
 def import_class(

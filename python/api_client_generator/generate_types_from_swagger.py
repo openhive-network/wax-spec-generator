@@ -120,7 +120,7 @@ def fix_malformed_typealias(output: Path) -> None:
                         merged_line = merged_line.rstrip() + "]"
 
                     # Clean up extra spaces before closing brackets
-                    merged_line = re.sub(r'\s+\]', ']', merged_line)
+                    merged_line = re.sub(r"\s+\]", "]", merged_line)
 
                     fixed_lines.append(merged_line)
                     continue
@@ -174,15 +174,30 @@ def fix_forward_references(output: Path) -> None:
             # Match description dict entries: "params": TypeName, or "result": TypeName,
             if '"params":' in line or '"result":' in line:
                 # Extract the type name after the colon
-                match = re.search(r':\s*([A-Z]\w+)\s*,', line)
+                match = re.search(r":\s*([A-Z]\w+)\s*,", line)
                 if match:
                     referenced_in_description.add(match.group(1))
 
         # Also add built-in types that should not be considered undefined
         builtin_types = {
-            "int", "str", "float", "bool", "dict", "list", "tuple", "set",
-            "Any", "None", "Union", "Optional", "Literal",
-            "UNSET", "UnsetType", "Meta", "Struct", "field"
+            "int",
+            "str",
+            "float",
+            "bool",
+            "dict",
+            "list",
+            "tuple",
+            "set",
+            "Any",
+            "None",
+            "Union",
+            "Optional",
+            "Literal",
+            "UNSET",
+            "UnsetType",
+            "Meta",
+            "Struct",
+            "field",
         }
         defined_types.update(builtin_types)
 
@@ -201,7 +216,7 @@ def fix_forward_references(output: Path) -> None:
 
                     # Find all identifiers in the type expression
                     # Match word boundaries to get type names
-                    identifiers = re.findall(r'\b([A-Z]\w+)\b', type_expr)
+                    identifiers = re.findall(r"\b([A-Z]\w+)\b", type_expr)
 
                     # Collect undefined types for stub creation
                     undefined_refs = [id for id in identifiers if id not in defined_types]
