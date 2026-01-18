@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import ast
-from typing import TYPE_CHECKING, Any, Sequence, get_type_hints
+import types
+from typing import TYPE_CHECKING, Any, Sequence, Union, get_args, get_origin, get_type_hints
 
 from msgspec import Struct
 
@@ -122,6 +123,7 @@ def import_params_types(params: type[Struct] | None, already_imported: list[str]
     Notes:
         - If params is None or empty, an empty list is returned.
         - If a parameter is from the builtins or __main__ module, it is skipped.
+        - Union types (X | Y or Union[X, Y]) are unpacked and each component is imported.
 
     Raises:
         EndpointParamsIsNotDataclassError: If params is not a dataclass.
@@ -142,7 +144,9 @@ def import_params_types(params: type[Struct] | None, already_imported: list[str]
         raise EndpointParamsIsNotMsgspecStructError
 
     for type_ in get_type_hints(params).values():
-        add_import(type_)
+        # Extract importable types from the type hint (handles unions, generics, etc.)
+        for importable_type in _get_importable_types(type_):
+            add_import(importable_type)
 
     return needed_imports
 
@@ -171,6 +175,46 @@ def compute_full_module_name(module_path: Path, root: Path) -> str:
     return f"{root.name}.{relative_name}" if relative_name else root.name
 
 
+def _is_union_type(type_: Any) -> bool:
+    """Check if a type is a union type (Union[X, Y] or X | Y)."""
+    origin = get_origin(type_)
+    return origin is Union or isinstance(type_, types.UnionType)
+
+
+def _get_importable_types(type_: Any) -> list[Importable]:
+    """
+    Extract importable types from a type hint.
+
+    Handles union types by extracting their component types.
+    Returns an empty list for types that don't need importing (builtins, None, etc.).
+    """
+    if type_ is type(None):  # noqa: E721
+        return []
+
+    if _is_union_type(type_):
+        result = []
+        for arg in get_args(type_):
+            result.extend(_get_importable_types(arg))
+        return result
+
+    # Check if it's a generic type (like list[str], dict[str, int])
+    origin = get_origin(type_)
+    if origin is not None:
+        # For generic types, we might need to import the origin and args
+        result = []
+        if hasattr(origin, "__module__") and origin.__module__ != "builtins":
+            result.append(origin)
+        for arg in get_args(type_):
+            result.extend(_get_importable_types(arg))
+        return result
+
+    # Regular type - check if it has the required attributes
+    if hasattr(type_, "__module__") and hasattr(type_, "__name__"):
+        return [type_]
+
+    return []
+
+
 def _should_be_imported(class_: Importable, already_imported: list[str]) -> bool:
     """
     Check if a class should be imported.
@@ -182,4 +226,6 @@ def _should_be_imported(class_: Importable, already_imported: list[str]) -> bool
     Returns:
         bool: True if the class should be imported, False otherwise.
     """
+    if not hasattr(class_, "__module__") or not hasattr(class_, "__name__"):
+        return False
     return class_.__module__ != "builtins" and class_.__name__ not in already_imported
