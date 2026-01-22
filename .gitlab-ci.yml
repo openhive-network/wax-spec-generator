@@ -28,8 +28,7 @@ default:
   tags:
     - public-runner-docker
 
-# Override before_script to regenerate poetry.lock for Python 3.14 compatibility
-.regenerate_lock_before_script:
+.python_before_script:
   before_script:
     - echo "Using Python project directory - ${PYPROJECT_DIR}"
     - poetry -C "${PYPROJECT_DIR}" env use python3
@@ -37,7 +36,6 @@ default:
     - python3 -V
     - poetry -C "${PYPROJECT_DIR}" -V
     - pip list
-    - poetry -C "${PYPROJECT_DIR}" lock --no-update 2>/dev/null || poetry -C "${PYPROJECT_DIR}" lock
     - poetry -C "${PYPROJECT_DIR}" install
     - pip list
 
@@ -51,7 +49,7 @@ pre_commit_checks:
   stage: .pre
   extends:
     - .pre_commit_checks_template
-    - .regenerate_lock_before_script
+    - .python_before_script
   variables:
     PYPROJECT_DIR: "${CI_PROJECT_DIR}/python"
   artifacts:
@@ -65,7 +63,7 @@ tests:
   stage: tests
   extends:
     - .project_develop_configuration_template
-    - .regenerate_lock_before_script
+    - .python_before_script
   variables:
     PYPROJECT_DIR: "${CI_PROJECT_DIR}/python"
   needs:
@@ -87,7 +85,7 @@ build_wheel:
   stage: build
   extends:
     - .build_wheel_template
-    - .regenerate_lock_before_script
+    - .python_before_script
   variables:
     PYPROJECT_DIR: "${CI_PROJECT_DIR}/python"
   needs:
