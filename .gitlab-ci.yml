@@ -14,6 +14,9 @@ variables:
   PYTHON_IMAGE: "registry.gitlab.syncad.com/hive/hive/ci-base-image${PYTHON_IMAGE_TAG}"
   CI_BASE_IMAGE: "${PYTHON_IMAGE}"
 
+  # Set to "true" to run poetry update and test with latest dependency versions
+  UPDATE_LATEST_DEPS: "false"
+
 include:
   - template: Workflows/Branch-Pipelines.gitlab-ci.yml
   - project: 'hive/common-ci-configuration'
@@ -36,6 +39,11 @@ default:
     - python3 -V
     - poetry -C "${PYPROJECT_DIR}" -V
     - pip list
+    - |
+      if [ "${UPDATE_LATEST_DEPS}" = "true" ]; then
+        echo "UPDATE_LATEST_DEPS is enabled - running poetry update to get latest dependencies"
+        poetry -C "${PYPROJECT_DIR}" update
+      fi
     - poetry -C "${PYPROJECT_DIR}" install
     - pip list
 
