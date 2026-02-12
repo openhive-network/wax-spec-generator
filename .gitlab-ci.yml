@@ -15,12 +15,13 @@ variables:
   CI_BASE_IMAGE: "${PYTHON_IMAGE}"
 
   # Set to "true" to run poetry update and test with latest dependency versions
-  UPDATE_LATEST_DEPS: "false"
+  TEST_WITH_LATEST_DEPENDENCIES: "false"
+  STATIC_ANALYSIS_WITH_LATEST_DEPENDENCIES: "false"
 
 include:
   - template: Workflows/Branch-Pipelines.gitlab-ci.yml
   - project: 'hive/common-ci-configuration'
-    ref: 8efd11eebb0cf8d95efef436dd23013d2c594c67
+    ref: 07fdf2c2bf8155477e7e1229e0bcc77852c9aa84
     file:
       - '/templates/npm_projects.gitlab-ci.yml'
       - 'templates/python_projects.gitlab-ci.yml'
@@ -31,22 +32,6 @@ default:
   tags:
     - public-runner-docker
 
-.python_before_script:
-  before_script:
-    - echo "Using Python project directory - ${PYPROJECT_DIR}"
-    - poetry -C "${PYPROJECT_DIR}" env use python3
-    - source $(poetry -C "${PYPROJECT_DIR}" env info --path)/bin/activate
-    - python3 -V
-    - poetry -C "${PYPROJECT_DIR}" -V
-    - pip list
-    - |
-      if [ "${UPDATE_LATEST_DEPS}" = "true" ]; then
-        echo "UPDATE_LATEST_DEPS is enabled - running poetry update to get latest dependencies"
-        poetry -C "${PYPROJECT_DIR}" update
-      fi
-    - poetry -C "${PYPROJECT_DIR}" install
-    - pip list
-
 lint:
   stage: .pre
   extends: .npm_based_job_base
@@ -55,9 +40,10 @@ lint:
 
 pre_commit_checks:
   stage: .pre
-  extends:
-    - .pre_commit_checks_template
-    - .python_before_script
+  extends: .pre_commit_checks_template
+  before_script:
+    - !reference [.project_develop_configuration_template, before_script]
+    - !reference [.update_deps_for_static_analysis, script]
   variables:
     PYPROJECT_DIR: "${CI_PROJECT_DIR}/python"
   artifacts:
@@ -69,9 +55,10 @@ pre_commit_checks:
 
 tests:
   stage: tests
-  extends:
-    - .project_develop_configuration_template
-    - .python_before_script
+  extends: .project_develop_configuration_template
+  before_script:
+    - !reference [.project_develop_configuration_template, before_script]
+    - !reference [.update_deps_for_tests, script]
   variables:
     PYPROJECT_DIR: "${CI_PROJECT_DIR}/python"
   needs:
@@ -93,7 +80,6 @@ build_wheel:
   stage: build
   extends:
     - .build_wheel_template
-    - .python_before_script
   variables:
     PYPROJECT_DIR: "${CI_PROJECT_DIR}/python"
   needs:
