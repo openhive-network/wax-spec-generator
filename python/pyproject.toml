@@ -7,7 +7,7 @@ build-backend = "poetry_dynamic_versioning.backend"
 
 
 [tool.poetry]
-name = "api_client_generator"
+name = "hiveio-api-client-generator"
 version = "0.0.0"
 description = ""
 authors = [
