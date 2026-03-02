@@ -19,18 +19,20 @@ repos:
         name: checking if poetry.lock is consistent with pyproject.toml
         language_version: python3.12
         args: [ "-C", "./python" ]
-  - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: 'v0.11.5'
+  - repo: local
     hooks:
       - id: ruff
         name: linting code with Ruff
-        args: [ "--fix" ]
+        entry: ruff check --fix
+        language: system
+        types: [python]
       - id: ruff-format
         name: format code using Ruff formatter
-  - repo: local
-    hooks:
-    - id: mypy
-      name: type check with mypy
-      entry: mypy
-      language: system
-      types: [ python ]
+        entry: ruff format
+        language: system
+        types: [python]
+      - id: mypy
+        name: type check with mypy
+        entry: mypy
+        language: system
+        types: [python]
