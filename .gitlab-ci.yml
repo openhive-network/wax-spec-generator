@@ -8,11 +8,6 @@ variables:
   GIT_DEPTH: 0
   GIT_STRATEGY: clone
   GIT_SUBMODULE_STRATEGY: recursive
-  # Override to use Python 3.14 base image
-  # uses registry.gitlab.syncad.com/hive/hive/ci-base-image:ubuntu24.04-py3.14-1
-  PYTHON_IMAGE_TAG: ":ubuntu24.04-py3.14-1"
-  PYTHON_IMAGE: "registry.gitlab.syncad.com/hive/hive/ci-base-image${PYTHON_IMAGE_TAG}"
-  CI_BASE_IMAGE: "${PYTHON_IMAGE}"
 
   # Set to "true" to run poetry update and test with latest dependency versions
   TEST_WITH_LATEST_DEPENDENCIES: "false"
@@ -21,7 +16,7 @@ variables:
 include:
   - template: Workflows/Branch-Pipelines.gitlab-ci.yml
   - project: 'hive/common-ci-configuration'
-    ref: 07fdf2c2bf8155477e7e1229e0bcc77852c9aa84
+    ref: 115144d4fd516f84c292266079c7dbb2abb4d04b
     file:
       - '/templates/npm_projects.gitlab-ci.yml'
       - 'templates/python_projects.gitlab-ci.yml'
