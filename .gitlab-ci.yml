@@ -16,7 +16,7 @@ variables:
 include:
   - template: Workflows/Branch-Pipelines.gitlab-ci.yml
   - project: 'hive/common-ci-configuration'
-    ref: 115144d4fd516f84c292266079c7dbb2abb4d04b
+    ref: 44aefe652c4208db356241bdb917de41afbac86a
     file:
       - '/templates/npm_projects.gitlab-ci.yml'
       - 'templates/python_projects.gitlab-ci.yml'
