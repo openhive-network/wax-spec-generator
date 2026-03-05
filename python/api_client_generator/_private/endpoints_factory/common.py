@@ -5,6 +5,18 @@ import ast
 from api_client_generator._private.common.models_aliased import Importable
 
 
+def _format_generic_list(result_type: Importable) -> str:
+    """Format a generic list type (e.g. list[str]) as a string for AST annotation.
+
+    Handles typing module types like Any that str() renders as 'typing.Any'.
+    """
+    args = getattr(result_type, "__args__", None)
+    if args:
+        arg_name = args[0].__name__ if hasattr(args[0], "__name__") else str(args[0])
+        return f"list[{arg_name}]"
+    return "list"
+
+
 def create_endpoint(  # NOQA: PLR0913
     name: str,
     endpoint_arguments: ast.arguments,
@@ -49,12 +61,16 @@ def create_endpoint(  # NOQA: PLR0913
 
     if isinstance(result_type, str):
         returns = ast.Name(id=result_type)
+    elif result_type is not None:
+        if not response_array:
+            returns = ast.Name(id=result_type.__name__)
+        elif hasattr(result_type, "__origin__") and result_type.__origin__ is list:
+            # Already a generic list type (e.g. list[str]) — use as-is, don't double-wrap
+            returns = ast.Name(id=_format_generic_list(result_type))
+        else:
+            returns = ast.Name(id=f"list[{result_type.__name__}]")
     else:
-        returns = (
-            ast.Name(id=result_type.__name__ if not response_array else f"list[{result_type.__name__}]")
-            if result_type is not None
-            else None
-        )
+        returns = None
 
     function_def: type[ast.FunctionDef] | type[ast.AsyncFunctionDef] = (
         ast.AsyncFunctionDef if asynchronous else ast.FunctionDef
