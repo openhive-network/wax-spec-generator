@@ -6,7 +6,8 @@ from typing import Final
 
 
 STRUCT_CLASS_REGEX: Final[str] = r"class\s+([A-Za-z0-9_]+)\(Struct\):((?:\n(?:    .*)*)*)"
-ALIAS_REGEX: Final[str] = r"^([A-Za-z0-9_]+)\s*=\s*([^\n]+)"
+ALIAS_REGEX: Final[str] = r"^([A-Za-z0-9_]+)(?::\s*TypeAlias)?\s*=\s*([^\n]+)"
+MULTILINE_ALIAS_REGEX: Final[str] = r"^([A-Za-z0-9_]+)(?::\s*TypeAlias)?\s*=\s*\(\n((?:.*\n)*?\))"
 ATTRIBUTE_REGEX: Final[str] = r"\b([A-Z][A-Za-z0-9_]+)\b"
 
 
@@ -22,6 +23,13 @@ def parse_models_and_aliases(content: str) -> dict[str, set[str]]:
 
     alias_defs = re.findall(ALIAS_REGEX, content, re.MULTILINE)
     for name, expr in alias_defs:
+        if expr.rstrip().endswith("("):
+            continue  # Skip incomplete match — will be caught by multiline regex
+        refs = re.findall(ATTRIBUTE_REGEX, expr)
+        dependency_map[name] = set(refs) - {name}
+
+    multiline_alias_defs = re.findall(MULTILINE_ALIAS_REGEX, content, re.MULTILINE)
+    for name, expr in multiline_alias_defs:
         refs = re.findall(ATTRIBUTE_REGEX, expr)
         dependency_map[name] = set(refs) - {name}
 
@@ -52,7 +60,12 @@ def remove_multiline_typelines(content: str, unused_aliases: set[str]) -> str:
         stripped = line.strip()
         if not skip:
             if any(
-                stripped.startswith(f"{alias} = list[") or stripped.startswith(f"{alias} = Optional[")
+                stripped.startswith(f"{alias} = list[")
+                or stripped.startswith(f"{alias} = Optional[")
+                or stripped.startswith(f"{alias} = (")
+                or stripped.startswith(f"{alias}: TypeAlias = list[")
+                or stripped.startswith(f"{alias}: TypeAlias = Optional[")
+                or stripped.startswith(f"{alias}: TypeAlias = (")
                 for alias in unused_aliases
             ):
                 skip = True
@@ -62,7 +75,7 @@ def remove_multiline_typelines(content: str, unused_aliases: set[str]) -> str:
                 continue
             result_lines.append(line)
         else:
-            if "]" in line:
+            if "]" in line or stripped == ")":
                 skip = False
                 continue
     return "".join(result_lines)
@@ -82,7 +95,14 @@ def clean_file(path: Path, roots: set[str]) -> None:
             )
             content = class_pattern.sub("", content)
 
-            alias_pattern = re.compile(rf"^\s*{re.escape(name)}\s*=\s*[^\n]+\n?", re.MULTILINE)
+            # Remove multiline aliases FIRST: Name: TypeAlias = (\n    ...\n)
+            # Must run before single-line removal to avoid breaking multiline patterns
+            multiline_alias_pattern = re.compile(
+                rf"^\s*{re.escape(name)}(?::\s*TypeAlias)?\s*=\s*\(\n(?:.*\n)*?\)\n?", re.MULTILINE
+            )
+            content = multiline_alias_pattern.sub("", content)
+            # Remove single-line aliases
+            alias_pattern = re.compile(rf"^\s*{re.escape(name)}(?::\s*TypeAlias)?\s*=\s*[^\n]+\n?", re.MULTILINE)
             content = alias_pattern.sub("", content)
 
     unused_aliases = {name for name in dependency_map.keys() if name not in used}

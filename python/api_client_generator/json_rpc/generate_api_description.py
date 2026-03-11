@@ -48,6 +48,7 @@ from api_client_generator._private.description_tools import (
 from api_client_generator._private.export_client_module_to_file import export_module_to_file
 from api_client_generator.generate_types_from_swagger import (
     generate_types_from_swagger,
+    generate_missing_types,
     fix_malformed_typealias,
     fix_forward_references,
 )
@@ -160,6 +161,11 @@ def generate_api_description(
         mode="a",
         file_path=output_file,
     )
+
+    # Generate full class definitions for types that exist in the original OpenAPI spec
+    # but were lost during flattening (their $ref was inlined, losing the schema name)
+    if openapi_flattened_definition is not None:
+        generate_missing_types(output_file, openapi_api_definition, used_models)
 
     # Final pass: remove any remaining TypeAlias with undefined references
     # This handles cases where clean_file couldn't remove them
