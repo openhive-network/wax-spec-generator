@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import tempfile
 from pathlib import Path
@@ -367,11 +368,14 @@ def generate_missing_types(
         "components": {"schemas": schemas_for_generation},
     }
 
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-        json.dump(mini_spec, f)
-        tmp_spec = Path(f.name)
+    spec_fd, spec_path = tempfile.mkstemp(suffix=".json")
+    os.close(spec_fd)
+    tmp_spec = Path(spec_path)
+    tmp_spec.write_text(json.dumps(mini_spec))
 
-    tmp_output = Path(tempfile.mktemp(suffix=".py"))
+    tmp_fd, tmp_output_str = tempfile.mkstemp(suffix=".py")
+    os.close(tmp_fd)
+    tmp_output = Path(tmp_output_str)
     try:
         generate(
             tmp_spec,
