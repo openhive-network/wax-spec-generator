@@ -7,6 +7,7 @@ from pathlib import Path
 
 from datamodel_code_generator import DataModelType, InputFileType, PythonVersion, generate
 
+from api_client_generator._private.common.converters import camel_to_snake
 from api_client_generator._private.resolve_needed_imports import (
     compute_full_module_name,
     find_package_root,
@@ -294,11 +295,6 @@ def _collect_schemas_recursively(
     return collected
 
 
-def _camel_to_snake(name: str) -> str:
-    """Convert PascalCase to snake_case."""
-    return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
-
-
 def generate_missing_types(
     output_file: Path,
     openapi_original: Path,
@@ -345,7 +341,7 @@ def generate_missing_types(
     # Collect schemas for all missing types and their dependencies
     schemas_to_generate: dict[str, object] = {}
     for model_name in missing:
-        snake_name = _camel_to_snake(model_name)
+        snake_name = camel_to_snake(model_name)
         _collect_schemas_recursively(snake_name, components, schemas_to_generate)
 
     if not schemas_to_generate:
@@ -353,7 +349,7 @@ def generate_missing_types(
 
     # Filter out schemas whose generated types already exist in the output
     # (but keep schemas for nullable_none_types that need regeneration)
-    nullable_none_snake = {_camel_to_snake(t) for t in nullable_none_types}
+    nullable_none_snake = {camel_to_snake(t) for t in nullable_none_types}
     schemas_for_generation = {}
     for schema_name, schema_def in schemas_to_generate.items():
         camel_name = re.sub(r"(?:^|_)(\w)", lambda m: m.group(1).upper(), schema_name)
