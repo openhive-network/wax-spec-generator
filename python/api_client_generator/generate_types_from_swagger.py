@@ -5,6 +5,7 @@ import os
 import re
 import tempfile
 from pathlib import Path
+from typing import Any, Final
 
 from datamodel_code_generator import DataModelType, InputFileType, PythonVersion, generate
 
@@ -13,6 +14,15 @@ from api_client_generator._private.resolve_needed_imports import (
     compute_full_module_name,
     find_package_root,
 )
+
+_GENERATE_KWARGS: Final[dict[str, Any]] = {
+    "output_model_type": DataModelType.MsgspecStruct,
+    "input_file_type": InputFileType.OpenAPI,
+    "use_field_description": True,
+    "use_standard_collections": True,
+    "use_exact_imports": True,
+    "target_python_version": PythonVersion.PY_311,
+}
 
 
 def generate_types_from_swagger(
@@ -42,12 +52,7 @@ def generate_types_from_swagger(
     generate(  # generation of types available in the API definition
         openapi_file,
         output=output,
-        output_model_type=DataModelType.MsgspecStruct,
-        input_file_type=InputFileType.OpenAPI,
-        use_field_description=True,
-        use_standard_collections=True,
-        use_exact_imports=True,
-        target_python_version=PythonVersion.PY_311,  # Use 3.11 to avoid PEP 695 type statements (not compatible with exec_module)
+        **_GENERATE_KWARGS,
     )
 
     package_root = find_package_root(output)
@@ -380,12 +385,7 @@ def generate_missing_types(
         generate(
             tmp_spec,
             output=tmp_output,
-            output_model_type=DataModelType.MsgspecStruct,
-            input_file_type=InputFileType.OpenAPI,
-            use_field_description=True,
-            use_standard_collections=True,
-            use_exact_imports=True,
-            target_python_version=PythonVersion.PY_311,
+            **_GENERATE_KWARGS,
         )
 
         generated = tmp_output.read_text(encoding="utf-8")
