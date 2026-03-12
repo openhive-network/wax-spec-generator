@@ -55,27 +55,38 @@ def remove_multiline_typelines(content: str, unused_aliases: set[str]) -> str:
     lines = content.splitlines(keepends=True)
     result_lines = []
     skip = False
+    skip_terminator: str | None = None
 
     for line in lines:
         stripped = line.strip()
         if not skip:
-            if any(
-                stripped.startswith(f"{alias} = list[")
-                or stripped.startswith(f"{alias} = Optional[")
-                or stripped.startswith(f"{alias} = (")
-                or stripped.startswith(f"{alias}: TypeAlias = list[")
-                or stripped.startswith(f"{alias}: TypeAlias = Optional[")
-                or stripped.startswith(f"{alias}: TypeAlias = (")
-                for alias in unused_aliases
-            ):
+            is_bracket = False
+            is_paren = False
+            for alias in unused_aliases:
+                if (
+                    stripped.startswith(f"{alias} = list[")
+                    or stripped.startswith(f"{alias} = Optional[")
+                    or stripped.startswith(f"{alias}: TypeAlias = list[")
+                    or stripped.startswith(f"{alias}: TypeAlias = Optional[")
+                ):
+                    is_bracket = True
+                    break
+                if stripped.startswith(f"{alias} = (") or stripped.startswith(f"{alias}: TypeAlias = ("):
+                    is_paren = True
+                    break
+            if not is_bracket and not is_paren:
+                if stripped.startswith("list[") or stripped.startswith("Optional["):
+                    is_bracket = True
+            if is_bracket or is_paren:
                 skip = True
-                continue
-            if stripped.startswith("list[") or stripped.startswith("Optional["):
-                skip = True
+                skip_terminator = ")" if is_paren else "]"
                 continue
             result_lines.append(line)
         else:
-            if "]" in line or stripped == ")":
+            if skip_terminator == "]" and "]" in line:
+                skip = False
+                continue
+            if skip_terminator == ")" and stripped == ")":
                 skip = False
                 continue
     return "".join(result_lines)
