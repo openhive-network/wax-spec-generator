@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import ast
-import types
-from typing import Any, Union, get_args, get_origin
+from typing import Any
 
 from msgspec import NODEFAULT, Struct
 from msgspec.structs import fields
 
-from api_client_generator._private.common.array_handle import is_param_array, get_array_ready_for_annotation
+from api_client_generator._private.common.array_handle import (
+    format_annotation,
+    is_param_array,
+    get_array_ready_for_annotation,
+)
 from api_client_generator._private.common.defaults import DEFAULT_ENDPOINT_JSON_RPC_DECORATOR_NAME
 from api_client_generator._private.common.models_aliased import Importable
 from api_client_generator._private.endpoints_factory.common import (
@@ -15,40 +18,6 @@ from api_client_generator._private.endpoints_factory.common import (
 )
 from api_client_generator._private.resolve_needed_imports import is_struct
 from api_client_generator.exceptions import EndpointParamsIsNotMsgspecStructError
-
-
-def _get_type_annotation_str(type_: Any) -> str:
-    """
-    Get a string representation of a type suitable for use in AST annotation.
-
-    Handles union types (X | Y and Union[X, Y]), generic types, and regular types.
-    """
-    # Handle None type
-    if type_ is type(None):  # noqa: E721
-        return "None"
-
-    # Handle union types (X | Y syntax or Union[X, Y])
-    origin = get_origin(type_)
-    if origin is Union or isinstance(type_, types.UnionType):
-        args = get_args(type_)
-        arg_strs = [_get_type_annotation_str(arg) for arg in args]
-        return " | ".join(arg_strs)
-
-    # Handle other generic types (list[str], dict[str, int], etc.)
-    if origin is not None:
-        args = get_args(type_)
-        if args:
-            arg_strs = [_get_type_annotation_str(arg) for arg in args]
-            origin_name = origin.__name__ if hasattr(origin, "__name__") else str(origin)
-            return f"{origin_name}[{', '.join(arg_strs)}]"
-        return origin.__name__ if hasattr(origin, "__name__") else str(origin)
-
-    # Regular type with __name__
-    if hasattr(type_, "__name__"):
-        return type_.__name__
-
-    # Fallback to string representation
-    return str(type_)
 
 
 def create_endpoint(  # NOQA: PLR0913
@@ -148,7 +117,7 @@ def get_endpoint_args(params: Struct | list[Any] | None, *, legacy_args_serializ
         endpoints_args.append(
             ast.arg(
                 arg=param.name,
-                annotation=ast.Name(id=_get_type_annotation_str(param.type)),
+                annotation=ast.Name(id=format_annotation(param.type)),
             )
         )
 

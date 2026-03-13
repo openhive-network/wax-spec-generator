@@ -46,13 +46,13 @@ def get_array_ready_for_annotation(param: Any) -> str:
         if not args:
             return "list[str]"
 
-        inner = _format_annotation(args[0]) if len(args) == 1 else " | ".join(_format_annotation(arg) for arg in args)
+        inner = format_annotation(args[0]) if len(args) == 1 else " | ".join(format_annotation(arg) for arg in args)
         return f"list[{inner}]"
 
     return "list[str]"
 
 
-def _format_annotation(annotation: Any) -> str:
+def format_annotation(annotation: Any) -> str:
     origin = t.get_origin(annotation)
 
     if origin is None:
@@ -75,21 +75,21 @@ def _format_annotation(annotation: Any) -> str:
 
     if origin is tuple:
         if len(args) == 2 and args[1] is Ellipsis:
-            return f"tuple[{_format_annotation(args[0])}, ...]"
-        return f"tuple[{', '.join(_format_annotation(arg) for arg in args)}]"
+            return f"tuple[{format_annotation(args[0])}, ...]"
+        return f"tuple[{', '.join(format_annotation(arg) for arg in args)}]"
 
     if origin is dict and len(args) == 2:
         key, value = args
-        return f"dict[{_format_annotation(key)}, {_format_annotation(value)}]"
+        return f"dict[{format_annotation(key)}, {format_annotation(value)}]"
 
     if origin is set:
         return f"set[{_format_collection_args(args)}]"
 
     if origin in (t.Union, types.UnionType):
-        return " | ".join(_format_annotation(arg) for arg in args)
+        return " | ".join(format_annotation(arg) for arg in args)
 
     origin_name = getattr(origin, "__name__", str(origin))
-    formatted_args = ", ".join(_format_annotation(arg) for arg in args)
+    formatted_args = ", ".join(format_annotation(arg) for arg in args)
     return f"{origin_name}[{formatted_args}]" if formatted_args else origin_name
 
 
@@ -98,6 +98,6 @@ def _format_collection_args(args: tuple[Any, ...]) -> str:
         return "str"
 
     if len(args) == 1:
-        return _format_annotation(args[0])
+        return format_annotation(args[0])
 
-    return " | ".join(_format_annotation(arg) for arg in args)
+    return " | ".join(format_annotation(arg) for arg in args)
