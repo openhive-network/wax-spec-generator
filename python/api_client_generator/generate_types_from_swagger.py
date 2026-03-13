@@ -301,6 +301,138 @@ def _collect_schemas_recursively(
     return collected
 
 
+def _find_defined_types(content: str) -> tuple[set[str], set[str]]:
+    """Parse generated output to find defined type names and broken nullable TypeAliases.
+
+    Returns:
+        Tuple of (all defined type names, type names with TypeAlias = None).
+    """
+    defined_types: set[str] = set()
+    nullable_none_types: set[str] = set()
+    for line in content.split("\n"):
+        if ": TypeAlias = " in line:
+            match = re.match(r"^(\w+):\s*TypeAlias\s*=\s*(.+)$", line)
+            if match:
+                type_name, type_value = match.group(1), match.group(2).strip()
+                defined_types.add(type_name)
+                if type_value == "None":
+                    nullable_none_types.add(type_name)
+        elif line.startswith("class "):
+            match = re.match(r"^class\s+(\w+)", line)
+            if match:
+                defined_types.add(match.group(1))
+    return defined_types, nullable_none_types
+
+
+def _collect_missing_schemas(
+    openapi_original: Path,
+    missing: set[str],
+    defined_types: set[str],
+    nullable_none_types: set[str],
+) -> dict[str, object]:
+    """Collect OpenAPI schemas for missing types and their dependencies.
+
+    Returns:
+        Dict of schema_name -> schema_def ready for generation, or empty dict if nothing to generate.
+    """
+    openapi = json.loads(openapi_original.read_text())
+    components = openapi.get("components", {}).get("schemas", {})
+
+    schemas_to_generate: dict[str, object] = {}
+    for model_name in missing:
+        snake_name = camel_to_snake(model_name)
+        _collect_schemas_recursively(snake_name, components, schemas_to_generate)
+
+    if not schemas_to_generate:
+        return {}
+
+    nullable_none_snake = {camel_to_snake(t) for t in nullable_none_types}
+    return {
+        schema_name: schema_def
+        for schema_name, schema_def in schemas_to_generate.items()
+        if re.sub(r"(?:^|_)(\w)", lambda m: m.group(1).upper(), schema_name) not in defined_types
+        or schema_name in nullable_none_snake
+    }
+
+
+def _generate_from_mini_spec(schemas: dict[str, object]) -> str:
+    """Generate Python code from a mini OpenAPI spec containing only the given schemas.
+
+    Returns:
+        Generated Python source code as a string.
+    """
+    mini_spec = {
+        "openapi": "3.1.0",
+        "info": {"title": "missing-types", "version": "0.0.1"},
+        "paths": {},
+        "components": {"schemas": schemas},
+    }
+
+    spec_fd, spec_path = tempfile.mkstemp(suffix=".json")
+    os.close(spec_fd)
+    tmp_spec = Path(spec_path)
+    tmp_spec.write_text(json.dumps(mini_spec))
+
+    tmp_fd, tmp_output_str = tempfile.mkstemp(suffix=".py")
+    os.close(tmp_fd)
+    tmp_output = Path(tmp_output_str)
+    try:
+        generate(tmp_spec, output=tmp_output, **_GENERATE_KWARGS)
+        return tmp_output.read_text(encoding="utf-8")
+    finally:
+        tmp_spec.unlink(missing_ok=True)
+        tmp_output.unlink(missing_ok=True)
+
+
+def _patch_output(
+    content: str,
+    code_blocks: list[str],
+    regenerated_aliases: dict[str, str],
+) -> str:
+    """Splice generated classes and fixed TypeAliases into the existing output content.
+
+    Classes are inserted BEFORE the TypeAlias lines that reference them to avoid NameError.
+
+    Returns:
+        Patched content string.
+    """
+    if code_blocks and regenerated_aliases:
+        class_insertion = "\n# Generated from original OpenAPI spec for types lost during flattening\n"
+        class_insertion += "\n".join(code_blocks) + "\n\n"
+
+        earliest_pos = len(content)
+        for type_name in regenerated_aliases:
+            match = re.search(
+                rf"^{re.escape(type_name)}:\s*TypeAlias\s*=\s*None$",
+                content,
+                flags=re.MULTILINE,
+            )
+            if match and match.start() < earliest_pos:
+                earliest_pos = match.start()
+
+        content = content[:earliest_pos] + class_insertion + content[earliest_pos:]
+
+    elif code_blocks:
+        insertion = "\n# Generated from original OpenAPI spec for types lost during flattening\n"
+        insertion += "\n".join(code_blocks) + "\n"
+        insert_pos = content.rfind("\n\n# Stub classes")
+        if insert_pos == -1:
+            insert_pos = content.rfind("\n\n{")
+            if insert_pos == -1:
+                insert_pos = len(content)
+        content = content[:insert_pos] + insertion + content[insert_pos:]
+
+    for type_name, new_line in regenerated_aliases.items():
+        content = re.sub(
+            rf"^{re.escape(type_name)}:\s*TypeAlias\s*=\s*None$",
+            new_line,
+            content,
+            flags=re.MULTILINE,
+        )
+
+    return content
+
+
 def generate_missing_types(
     output_file: Path,
     openapi_original: Path,
@@ -320,146 +452,45 @@ def generate_missing_types(
     """
     content = output_file.read_text(encoding="utf-8")
 
-    defined_types: set[str] = set()
-    nullable_none_types: set[str] = set()
-    for line in content.split("\n"):
-        if ": TypeAlias = " in line:
-            match = re.match(r"^(\w+):\s*TypeAlias\s*=\s*(.+)$", line)
-            if match:
-                type_name, type_value = match.group(1), match.group(2).strip()
-                defined_types.add(type_name)
-                if type_value == "None":
-                    nullable_none_types.add(type_name)
-        elif line.startswith("class "):
-            match = re.match(r"^class\s+(\w+)", line)
-            if match:
-                defined_types.add(match.group(1))
+    defined_types, nullable_none_types = _find_defined_types(content)
 
     missing = used_models - defined_types
-    # Also treat TypeAlias = None as needing regeneration (broken nullable types from flattened anyOf)
     missing |= nullable_none_types & used_models
     if not missing:
         return
 
-    openapi = json.loads(openapi_original.read_text())
-    components = openapi.get("components", {}).get("schemas", {})
-
-    # Collect schemas for all missing types and their dependencies
-    schemas_to_generate: dict[str, object] = {}
-    for model_name in missing:
-        snake_name = camel_to_snake(model_name)
-        _collect_schemas_recursively(snake_name, components, schemas_to_generate)
-
-    if not schemas_to_generate:
-        return
-
-    # Filter out schemas whose generated types already exist in the output
-    # (but keep schemas for nullable_none_types that need regeneration)
-    nullable_none_snake = {camel_to_snake(t) for t in nullable_none_types}
-    schemas_for_generation = {}
-    for schema_name, schema_def in schemas_to_generate.items():
-        camel_name = re.sub(r"(?:^|_)(\w)", lambda m: m.group(1).upper(), schema_name)
-        if camel_name not in defined_types or schema_name in nullable_none_snake:
-            schemas_for_generation[schema_name] = schema_def
-
+    schemas_for_generation = _collect_missing_schemas(openapi_original, missing, defined_types, nullable_none_types)
     if not schemas_for_generation:
         return
 
-    # Generate types from a mini OpenAPI spec containing only the missing schemas
-    mini_spec = {
-        "openapi": "3.1.0",
-        "info": {"title": "missing-types", "version": "0.0.1"},
-        "paths": {},
-        "components": {"schemas": schemas_for_generation},
-    }
+    generated = _generate_from_mini_spec(schemas_for_generation)
 
-    spec_fd, spec_path = tempfile.mkstemp(suffix=".json")
-    os.close(spec_fd)
-    tmp_spec = Path(spec_path)
-    tmp_spec.write_text(json.dumps(mini_spec))
-
-    tmp_fd, tmp_output_str = tempfile.mkstemp(suffix=".py")
-    os.close(tmp_fd)
-    tmp_output = Path(tmp_output_str)
-    try:
-        generate(
-            tmp_spec,
-            output=tmp_output,
-            **_GENERATE_KWARGS,
-        )
-
-        generated = tmp_output.read_text(encoding="utf-8")
-
-        # Extract class definitions and TypeAlias definitions (skip imports/header)
-        code_blocks: list[str] = []
-        regenerated_aliases: dict[str, str] = {}
-        lines = generated.split("\n")
-        i = 0
-        while i < len(lines):
-            line = lines[i]
-            if line.startswith("class "):
-                match = re.match(r"^class\s+(\w+)", line)
-                if match and (match.group(1) not in defined_types or match.group(1) in nullable_none_types):
-                    block = [line]
+    # Extract class definitions and TypeAlias definitions (skip imports/header)
+    code_blocks: list[str] = []
+    regenerated_aliases: dict[str, str] = {}
+    lines = generated.split("\n")
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if line.startswith("class "):
+            match = re.match(r"^class\s+(\w+)", line)
+            if match and (match.group(1) not in defined_types or match.group(1) in nullable_none_types):
+                block = [line]
+                i += 1
+                while i < len(lines) and (lines[i].startswith("    ") or lines[i].strip() == ""):
+                    block.append(lines[i])
                     i += 1
-                    while i < len(lines) and (lines[i].startswith("    ") or lines[i].strip() == ""):
-                        block.append(lines[i])
-                        i += 1
-                    code_blocks.append("\n".join(block))
-                    continue
-            elif ": TypeAlias = " in line:
-                alias_match = re.match(r"^(\w+):\s*TypeAlias\s*=\s*(.+)$", line)
-                if alias_match and alias_match.group(1) in nullable_none_types:
-                    regenerated_aliases[alias_match.group(1)] = line
-            i += 1
+                code_blocks.append("\n".join(block))
+                continue
+        elif ": TypeAlias = " in line:
+            alias_match = re.match(r"^(\w+):\s*TypeAlias\s*=\s*(.+)$", line)
+            if alias_match and alias_match.group(1) in nullable_none_types:
+                regenerated_aliases[alias_match.group(1)] = line
+        i += 1
 
-        # Insert class definitions and replace broken "TypeAlias = None" with regenerated nullable types.
-        # Classes must be inserted BEFORE the TypeAlias lines that reference them.
-        if regenerated_aliases or code_blocks:
-            content = output_file.read_text(encoding="utf-8")
-
-            if code_blocks and regenerated_aliases:
-                # Insert classes just before the first broken TypeAlias = None that we're replacing
-                class_insertion = "\n# Generated from original OpenAPI spec for types lost during flattening\n"
-                class_insertion += "\n".join(code_blocks) + "\n\n"
-
-                # Find the earliest TypeAlias = None line that we're replacing
-                earliest_pos = len(content)
-                for type_name in regenerated_aliases:
-                    match = re.search(
-                        rf"^{re.escape(type_name)}:\s*TypeAlias\s*=\s*None$",
-                        content,
-                        flags=re.MULTILINE,
-                    )
-                    if match and match.start() < earliest_pos:
-                        earliest_pos = match.start()
-
-                content = content[:earliest_pos] + class_insertion + content[earliest_pos:]
-
-            elif code_blocks:
-                # No aliases to replace, insert before description dict (original behavior)
-                insertion = "\n# Generated from original OpenAPI spec for types lost during flattening\n"
-                insertion += "\n".join(code_blocks) + "\n"
-                insert_pos = content.rfind("\n\n# Stub classes")
-                if insert_pos == -1:
-                    insert_pos = content.rfind("\n\n{")
-                    if insert_pos == -1:
-                        insert_pos = len(content)
-                content = content[:insert_pos] + insertion + content[insert_pos:]
-
-            # Replace broken TypeAlias = None with regenerated nullable types
-            for type_name, new_line in regenerated_aliases.items():
-                content = re.sub(
-                    rf"^{re.escape(type_name)}:\s*TypeAlias\s*=\s*None$",
-                    new_line,
-                    content,
-                    flags=re.MULTILINE,
-                )
-
-            output_file.write_text(content, encoding="utf-8")
-    finally:
-        tmp_spec.unlink(missing_ok=True)
-        tmp_output.unlink(missing_ok=True)
+    if regenerated_aliases or code_blocks:
+        content = _patch_output(content, code_blocks, regenerated_aliases)
+        output_file.write_text(content, encoding="utf-8")
 
 
 def fix_relative_imports(output_dir: Path, path_to_add: str) -> None:
