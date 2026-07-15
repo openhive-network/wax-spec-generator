@@ -65,6 +65,8 @@ def generate_api_description(
     apis_to_skip: Container[str] | None = None,
     allow_passing_item_suffix: bool = True,
     semantic_model_aliases: tuple[SemanticModelAlias, ...] | None = None,
+    semantic_model_common_file: str | Path | None = None,
+    semantic_model_common_import: str | None = None,
 ) -> None:
     """
     Generate an API description based on the provided OpenAPI definition.
@@ -79,6 +81,8 @@ def generate_api_description(
         apis_to_skip: APIs to skip during the generation process.
         allow_passing_item_suffix: Whether to allow passing the "Item" suffix for array response types.
         semantic_model_aliases: Stable model names for equivalent generated classes.
+        semantic_model_common_file: Optional module path for canonical model classes shared by generated modules.
+        semantic_model_common_import: Import path used by the output file to import models from semantic_model_common_file.
 
     Raises:
         FileNotFoundError: If the OpenAPI definition file does not exist.
@@ -173,6 +177,11 @@ def generate_api_description(
     # Final pass: remove any remaining TypeAlias with undefined references
     # This handles cases where clean_file couldn't remove them
     if semantic_model_aliases:
-        apply_semantic_model_aliases(output_file, semantic_model_aliases)
+        apply_semantic_model_aliases(
+            output_file,
+            semantic_model_aliases,
+            common_file=semantic_model_common_file,
+            common_import=semantic_model_common_import,
+        )
 
     fix_forward_references(output_file)
