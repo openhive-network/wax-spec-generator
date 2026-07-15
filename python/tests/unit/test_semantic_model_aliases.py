@@ -125,6 +125,49 @@ def test_semantic_model_aliases_skip_non_equivalent_models(tmp_path: Path) -> No
     assert _aliases_from(description) == {}
 
 
+def test_semantic_model_aliases_can_drop_removed_generated_names(tmp_path: Path) -> None:
+    description = tmp_path / "api_description.py"
+    description.write_text(
+        textwrap.dedent(
+            """
+            from __future__ import annotations
+
+            from msgspec import Struct
+
+            class Transaction3(Struct):
+                ref_block_num: int
+
+            class Transaction4(Struct):
+                ref_block_num: int
+
+            class Response(Struct):
+                transaction: Transaction4
+
+            api_description = {"result": Response}
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    apply_semantic_model_aliases(
+        description,
+        (
+            SemanticModelAlias(
+                "Transaction",
+                ("Transaction3", "Transaction4"),
+                emit_compatibility_aliases=False,
+            ),
+        ),
+    )
+
+    classes = _classes_from(description)
+    assert "Transaction" in classes
+    assert "Transaction3" not in classes
+    assert "Transaction4" not in classes
+    assert _aliases_from(description) == {}
+    assert _field_annotation(classes["Response"], "transaction") == "Transaction"
+
+
 def test_semantic_model_aliases_only_rewrite_code_identifiers(tmp_path: Path) -> None:
     description = tmp_path / "api_description.py"
     description.write_text(
