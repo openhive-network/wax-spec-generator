@@ -19,6 +19,7 @@ class SemanticModelAlias:
     members: tuple[str, ...]
     extra_aliases: tuple[str, ...] = ()
     minimum_members: int = 2
+    emit_compatibility_aliases: bool = True
 
 
 @dataclass(frozen=True)
@@ -75,6 +76,7 @@ def apply_semantic_model_aliases(
             classes before price classes that reference those assets.
         common_file: Optional module path that should receive the canonical model classes.
         common_import: Import path used by the description module for models written to common_file.
+            Set SemanticModelAlias.emit_compatibility_aliases to false when removed generated names should fail.
     """
     if (common_file is None) != (common_import is None):
         raise ValueError("common_file and common_import must be provided together.")
@@ -157,14 +159,15 @@ def _prepare_rewrite(
 
         replacements.update(group_replacements)
 
-        if primary != group.canonical:
+        if group.emit_compatibility_aliases and primary != group.canonical:
             aliases[primary] = group.canonical
 
         for member in existing_members:
             if member == primary:
                 continue
             removed_classes.add(member)
-            aliases[member] = group.canonical
+            if group.emit_compatibility_aliases:
+                aliases[member] = group.canonical
 
         for alias in group.extra_aliases:
             if alias != group.canonical:
