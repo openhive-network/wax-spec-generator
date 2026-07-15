@@ -53,6 +53,7 @@ from api_client_generator.generate_types_from_swagger import (
     fix_forward_references,
 )
 from api_client_generator.json_rpc.clean_openapi import clean_file
+from api_client_generator.semantic_model_aliases import SemanticModelAlias, apply_semantic_model_aliases
 
 
 def generate_api_description(
@@ -63,6 +64,7 @@ def generate_api_description(
     additional_aliases: tuple[AliasToAssign] | None = None,
     apis_to_skip: Container[str] | None = None,
     allow_passing_item_suffix: bool = True,
+    semantic_model_aliases: tuple[SemanticModelAlias, ...] | None = None,
 ) -> None:
     """
     Generate an API description based on the provided OpenAPI definition.
@@ -76,6 +78,7 @@ def generate_api_description(
         additional_aliases: Additional aliases to be used in the API description.
         apis_to_skip: APIs to skip during the generation process.
         allow_passing_item_suffix: Whether to allow passing the "Item" suffix for array response types.
+        semantic_model_aliases: Stable model names for equivalent generated classes.
 
     Raises:
         FileNotFoundError: If the OpenAPI definition file does not exist.
@@ -169,4 +172,7 @@ def generate_api_description(
 
     # Final pass: remove any remaining TypeAlias with undefined references
     # This handles cases where clean_file couldn't remove them
+    if semantic_model_aliases:
+        apply_semantic_model_aliases(output_file, semantic_model_aliases)
+
     fix_forward_references(output_file)
