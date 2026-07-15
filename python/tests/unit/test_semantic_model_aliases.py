@@ -166,6 +166,7 @@ def test_semantic_model_aliases_can_drop_removed_generated_names(tmp_path: Path)
     assert "Transaction4" not in classes
     assert _aliases_from(description) == {}
     assert _field_annotation(classes["Response"], "transaction") == "Transaction"
+    assert "TypeAlias" not in description.read_text(encoding="utf-8")
 
 
 def test_semantic_model_aliases_only_rewrite_code_identifiers(tmp_path: Path) -> None:
