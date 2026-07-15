@@ -202,6 +202,189 @@ def test_semantic_model_aliases_are_idempotent(tmp_path: Path) -> None:
     assert description.read_text(encoding="utf-8") == once
 
 
+def test_semantic_model_aliases_can_move_models_to_common_module(tmp_path: Path) -> None:
+    description = tmp_path / "api_description.py"
+    common = tmp_path / "common.py"
+    description.write_text(
+        textwrap.dedent(
+            """
+            from __future__ import annotations
+
+            from typing import TypeAlias
+
+            from msgspec import Struct
+
+            class Balance(Struct):
+                amount: str
+                nai: str
+                precision: int
+
+            class HbdBalance(Struct):
+                amount: str
+                nai: str
+                precision: int
+
+            class SellPrice(Struct):
+                base: Balance
+                quote: HbdBalance
+
+            class CurrentMedianHistory(Struct):
+                base: Balance
+                quote: HbdBalance
+
+            class GetPriceResponse(Struct):
+                price: CurrentMedianHistory
+
+            api_description = {"result": CurrentMedianHistory}
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    apply_semantic_model_aliases(
+        description,
+        (
+            SemanticModelAlias("NaiAsset", ("Balance", "HbdBalance")),
+            SemanticModelAlias("PricePair", ("SellPrice", "CurrentMedianHistory")),
+        ),
+        common_file=common,
+        common_import="generated_common",
+    )
+
+    description_content = description.read_text(encoding="utf-8")
+    description_classes = _classes_from(description)
+    common_classes = _classes_from(common)
+    aliases = _aliases_from(description)
+
+    assert "from generated_common import NaiAsset, PricePair" in description_content
+    assert "NaiAsset" not in description_classes
+    assert "PricePair" not in description_classes
+    assert "Balance" not in description_classes
+    assert "HbdBalance" not in description_classes
+    assert "SellPrice" not in description_classes
+    assert "CurrentMedianHistory" not in description_classes
+    assert "NaiAsset" in common_classes
+    assert "PricePair" in common_classes
+    assert aliases["Balance"] == "NaiAsset"
+    assert aliases["HbdBalance"] == "NaiAsset"
+    assert aliases["SellPrice"] == "PricePair"
+    assert aliases["CurrentMedianHistory"] == "PricePair"
+    assert _field_annotation(description_classes["GetPriceResponse"], "price") == "PricePair"
+    assert _field_annotation(common_classes["PricePair"], "base") == "NaiAsset"
+    assert _field_annotation(common_classes["PricePair"], "quote") == "NaiAsset"
+
+
+def test_semantic_model_aliases_reuse_existing_common_model(tmp_path: Path) -> None:
+    first_description = tmp_path / "first_description.py"
+    second_description = tmp_path / "second_description.py"
+    common = tmp_path / "common.py"
+    first_description.write_text(
+        textwrap.dedent(
+            """
+            from __future__ import annotations
+
+            from msgspec import Struct
+
+            class Balance(Struct):
+                amount: str
+                nai: str
+                precision: int
+
+            class HbdBalance(Struct):
+                amount: str
+                nai: str
+                precision: int
+
+            api_description = {}
+            """
+        ),
+        encoding="utf-8",
+    )
+    second_description.write_text(
+        textwrap.dedent(
+            """
+            from __future__ import annotations
+
+            from msgspec import Struct
+
+            class SavingsBalance(Struct):
+                amount: str
+                nai: str
+                precision: int
+
+            class RewardHbdBalance(Struct):
+                amount: str
+                nai: str
+                precision: int
+
+            api_description = {}
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    apply_semantic_model_aliases(
+        first_description,
+        (SemanticModelAlias("NaiAsset", ("Balance", "HbdBalance")),),
+        common_file=common,
+        common_import="generated_common",
+    )
+    common_after_first_run = common.read_text(encoding="utf-8")
+    apply_semantic_model_aliases(
+        second_description,
+        (SemanticModelAlias("NaiAsset", ("SavingsBalance", "RewardHbdBalance")),),
+        common_file=common,
+        common_import="generated_common",
+    )
+
+    assert common.read_text(encoding="utf-8") == common_after_first_run
+    assert "from generated_common import NaiAsset" in second_description.read_text(encoding="utf-8")
+    assert _aliases_from(second_description)["SavingsBalance"] == "NaiAsset"
+    assert _aliases_from(second_description)["RewardHbdBalance"] == "NaiAsset"
+
+
+def test_semantic_model_aliases_keep_local_model_when_common_dependencies_are_not_available(tmp_path: Path) -> None:
+    description = tmp_path / "api_description.py"
+    common = tmp_path / "common.py"
+    description.write_text(
+        textwrap.dedent(
+            """
+            from __future__ import annotations
+
+            from msgspec import Struct
+
+            class Extension(Struct):
+                type: str
+
+            class Transaction3(Struct):
+                extensions: list[Extension]
+
+            class Transaction4(Struct):
+                extensions: list[Extension]
+
+            api_description = {"result": Transaction4}
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    apply_semantic_model_aliases(
+        description,
+        (SemanticModelAlias("Transaction", ("Transaction3", "Transaction4")),),
+        common_file=common,
+        common_import="generated_common",
+    )
+
+    classes = _classes_from(description)
+    aliases = _aliases_from(description)
+    assert not common.exists()
+    assert "Transaction" in classes
+    assert "Transaction4" not in classes
+    assert aliases["Transaction3"] == "Transaction"
+    assert aliases["Transaction4"] == "Transaction"
+    assert "from generated_common import" not in description.read_text(encoding="utf-8")
+
+
 def _classes_from(path: Path) -> dict[str, ast.ClassDef]:
     return {
         node.name: node for node in ast.parse(path.read_text(encoding="utf-8")).body if isinstance(node, ast.ClassDef)
