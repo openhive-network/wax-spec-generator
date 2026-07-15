@@ -467,14 +467,13 @@ def _extract_import_header(source: str) -> list[str]:
     header_lines: list[str] = []
     for line in source.splitlines(keepends=True):
         stripped = line.strip()
-        if not stripped:
-            if header_lines:
-                header_lines.append(line)
-            continue
         if line.startswith("from __future__ import ") or line.startswith("from ") or line.startswith("import "):
             header_lines.append(line)
             continue
-        break
+        if line.startswith("class ") or _DESCRIPTION_DICT_PATTERN.match(line):
+            break
+        if header_lines and not stripped:
+            header_lines.append(line)
 
     if not any(line.startswith("from __future__ import annotations") for line in header_lines):
         header_lines.insert(0, "from __future__ import annotations\n")
