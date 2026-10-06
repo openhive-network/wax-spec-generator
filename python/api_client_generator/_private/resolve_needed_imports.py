@@ -4,14 +4,13 @@ import ast
 import types
 from typing import TYPE_CHECKING, Any, Sequence, Union, get_args, get_origin, get_type_hints
 
-from msgspec import Struct
-
 from api_client_generator._private.common.defaults import DEFAULT_IMPORT_LEVEL
 from api_client_generator._private.common.models_aliased import Importable
 from api_client_generator.exceptions import (
     ClassPassedByStrWithoutSourceError,
     EndpointParamsIsNotMsgspecStructError,
 )
+from api_client_generator.model_options import is_model
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -19,18 +18,14 @@ if TYPE_CHECKING:
 
 def is_struct(potential_struct: Any) -> bool:
     """
-    Check if the given parameter is a msgspec struct.
+    Check if the given parameter is a generated model (msgspec struct or dataclass).
 
     Args:
         potential_struct: The parameter to check.
     Returns:
-        bool: True if the class is a msgspec struct, False otherwise.
+        bool: True if the class is a msgspec struct or a dataclass, False otherwise.
     """
-    try:
-        return issubclass(potential_struct, Struct)
-    except TypeError:
-        # potential_struct is not a class (e.g., it's a TypeAlias)
-        return False
+    return is_model(potential_struct)
 
 
 def import_class(
@@ -112,12 +107,12 @@ def import_classes(
     return classes_imports
 
 
-def import_params_types(params: type[Struct] | None, already_imported: list[str]) -> list[ast.ImportFrom]:
+def import_params_types(params: type[Any] | None, already_imported: list[str]) -> list[ast.ImportFrom]:
     """
     Import parameters types from the given dataclass of parameters.
 
     Args:
-        params: A msgspec struct with parameters to import.
+        params: A model (msgspec struct or dataclass) with parameters to import.
         already_imported: A list of already imported types.
 
     Notes:

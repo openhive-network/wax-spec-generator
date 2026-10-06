@@ -5,29 +5,27 @@ import os
 import re
 import tempfile
 from pathlib import Path
-from typing import Any, Final
+from typing import Final
 
-from datamodel_code_generator import DataModelType, InputFileType, PythonVersion, generate
+from datamodel_code_generator import generate
 
 from api_client_generator._private.common.converters import camel_to_snake
 from api_client_generator._private.resolve_needed_imports import (
     compute_full_module_name,
     find_package_root,
 )
+from api_client_generator.model_options import CustomTypes, ModelOptions
 
-_GENERATE_KWARGS: Final[dict[str, Any]] = {
-    "output_model_type": DataModelType.MsgspecStruct,
-    "input_file_type": InputFileType.OpenAPI,
-    "use_field_description": True,
-    "use_standard_collections": True,
-    "use_exact_imports": True,
-    "target_python_version": PythonVersion.PY_311,
-}
+_DEFAULT_MODEL_OPTIONS: Final[ModelOptions] = ModelOptions()
+
+_CLASS_DECORATOR_PREFIX: Final[str] = "@dataclass"
 
 
 def generate_types_from_swagger(
     openapi_api_definition: str | Path,
     output: str | Path,
+    model_options: ModelOptions | None = None,
+    custom_types: CustomTypes | None = None,
 ) -> None:
     """
     Generate types defined in Swagger.
@@ -35,6 +33,8 @@ def generate_types_from_swagger(
     Args:
         openapi_api_definition: The OpenAPI JSON definition file path.
         output: The output file / package path where the generated types will be saved.
+        model_options: Shape of the generated models (model type, base class, ...). Defaults to plain msgspec structs.
+        custom_types: Custom types replacing OpenAPI types of annotated schema nodes.
 
     Notes:
         The generated types will be saved in the specified output directory, and relative imports will be fixed
@@ -49,11 +49,8 @@ def generate_types_from_swagger(
     if not openapi_file.exists():
         raise FileNotFoundError(f"File {openapi_file} does not exist.")
 
-    generate(  # generation of types available in the API definition
-        openapi_file,
-        output=output,
-        **_GENERATE_KWARGS,
-    )
+    model_options = model_options or _DEFAULT_MODEL_OPTIONS
+    _generate(openapi_file, output, model_options, custom_types)
 
     package_root = find_package_root(output)
     path_to_add_to_imports = compute_full_module_name(output, package_root)
@@ -65,7 +62,44 @@ def generate_types_from_swagger(
 
     fix_relative_imports(output, path_to_add_to_imports)
     fix_malformed_typealias(output)
-    fix_forward_references(output)
+    fix_forward_references(output, model_options)
+
+
+def _generate(
+    openapi_file: Path,
+    output: Path,
+    model_options: ModelOptions,
+    custom_types: CustomTypes | None,
+) -> None:
+    """Run datamodel-code-generator, applying custom types on a temporary copy of the definition if needed."""
+    if custom_types is None:
+        generate(openapi_file, output=output, **model_options.generate_kwargs())
+        return
+
+    spec_fd, spec_path = tempfile.mkstemp(suffix=".json")
+    os.close(spec_fd)
+    tmp_spec = Path(spec_path)
+    try:
+        custom_types.apply_to_file(openapi_file, tmp_spec)
+        generate(tmp_spec, output=output, **model_options.generate_kwargs())
+    finally:
+        tmp_spec.unlink(missing_ok=True)
+
+
+def _class_stub(name: str, model_options: ModelOptions) -> list[str]:
+    stub = [f"class {name}({model_options.base_class_name}):", "    pass", ""]
+    if model_options.model_type == "dataclass":
+        return [_dataclass_decorator(model_options), *stub]
+    return stub
+
+
+def _dataclass_decorator(model_options: ModelOptions) -> str:
+    arguments = [
+        argument
+        for argument, enabled in (("frozen=True", model_options.frozen), ("kw_only=True", model_options.kw_only))
+        if enabled
+    ]
+    return f"{_CLASS_DECORATOR_PREFIX}({', '.join(arguments)})" if arguments else _CLASS_DECORATOR_PREFIX
 
 
 def fix_malformed_typealias(output: Path) -> None:
@@ -142,7 +176,7 @@ def fix_malformed_typealias(output: Path) -> None:
             py_file.write_text(fixed_content, encoding="utf-8")
 
 
-def fix_forward_references(output: Path) -> None:
+def fix_forward_references(output: Path, model_options: ModelOptions | None = None) -> None:
     """
     Remove TypeAlias definitions that reference undefined types.
 
@@ -153,7 +187,9 @@ def fix_forward_references(output: Path) -> None:
 
     Args:
         output: Output file path or directory containing generated files.
+        model_options: Shape of the generated models, used to create stubs for undefined types.
     """
+    model_options = model_options or _DEFAULT_MODEL_OPTIONS
     files_to_fix = [output] if output.is_file() else list(output.rglob("*.py"))
 
     for py_file in files_to_fix:
@@ -182,10 +218,8 @@ def fix_forward_references(output: Path) -> None:
         for line in content.split("\n"):
             # Match description dict entries: "params": TypeName, or "result": TypeName,
             if '"params":' in line or '"result":' in line:
-                # Extract the type name after the colon
-                match = re.search(r":\s*([A-Z]\w+)\s*,", line)
-                if match:
-                    referenced_in_description.add(match.group(1))
+                # Extract the type names after "params"/"result" (an entry may be formatted in a single line)
+                referenced_in_description.update(re.findall(r'"(?:params|result)":\s*([A-Z]\w+)', line))
 
         # Also add built-in types that should not be considered undefined
         builtin_types = {
@@ -207,8 +241,11 @@ def fix_forward_references(output: Path) -> None:
             "Meta",
             "Struct",
             "field",
+            "dataclass",
+            model_options.base_class_name,
         }
         defined_types.update(builtin_types)
+        defined_types.update(_imported_names(content))  # e.g. custom types
 
         # Remove TypeAlias lines with undefined references, BUT ONLY if they're not
         # referenced in the API description. For those that are used, create stub classes.
@@ -261,9 +298,7 @@ def fix_forward_references(output: Path) -> None:
             # Create stub classes
             stubs = ["# Stub classes for undefined types referenced by datamodel-code-generator"]
             for undefined_type in sorted(undefined_types_to_stub):
-                stubs.append(f"class {undefined_type}(Struct):")
-                stubs.append("    pass")
-                stubs.append("")
+                stubs.extend(_class_stub(undefined_type, model_options))
             stubs.append("")  # Extra blank line
 
             fixed_lines[insert_index:insert_index] = stubs
@@ -271,6 +306,18 @@ def fix_forward_references(output: Path) -> None:
         fixed_content = "\n".join(fixed_lines)
         if fixed_content != content:
             py_file.write_text(fixed_content, encoding="utf-8")
+
+
+def _imported_names(content: str) -> set[str]:
+    """Names imported by top-level `from x import a, b` statements (also parenthesized, multi-line ones)."""
+    names: set[str] = set()
+    for match in re.finditer(r"^from\s+[\w.]+\s+import\s+(\([^)]*\)|[^\n]+)", content, flags=re.MULTILINE):
+        imported = match.group(1).strip("()")
+        for name in imported.split(","):
+            name = name.strip()
+            if name:
+                names.add(name.split(" as ")[-1].strip())
+    return names
 
 
 def _collect_schemas_recursively(
@@ -355,7 +402,9 @@ def _collect_missing_schemas(
     }
 
 
-def _generate_from_mini_spec(schemas: dict[str, object]) -> str:
+def _generate_from_mini_spec(
+    schemas: dict[str, object], model_options: ModelOptions, custom_types: CustomTypes | None
+) -> str:
     """Generate Python code from a mini OpenAPI spec containing only the given schemas.
 
     Returns:
@@ -377,7 +426,7 @@ def _generate_from_mini_spec(schemas: dict[str, object]) -> str:
     os.close(tmp_fd)
     tmp_output = Path(tmp_output_str)
     try:
-        generate(tmp_spec, output=tmp_output, **_GENERATE_KWARGS)
+        _generate(tmp_spec, tmp_output, model_options, custom_types)
         return tmp_output.read_text(encoding="utf-8")
     finally:
         tmp_spec.unlink(missing_ok=True)
@@ -437,6 +486,8 @@ def generate_missing_types(
     output_file: Path,
     openapi_original: Path,
     used_models: set[str],
+    model_options: ModelOptions | None = None,
+    custom_types: CustomTypes | None = None,
 ) -> None:
     """Generate full class definitions for types referenced in API description but missing from generated output.
 
@@ -449,7 +500,10 @@ def generate_missing_types(
         output_file: The generated Python file to patch.
         openapi_original: Path to the original (non-flattened) OpenAPI JSON with named schemas.
         used_models: Set of PascalCase type names referenced in the API description dict.
+        model_options: Shape of the generated models.
+        custom_types: Custom types replacing OpenAPI types of annotated schema nodes.
     """
+    model_options = model_options or _DEFAULT_MODEL_OPTIONS
     content = output_file.read_text(encoding="utf-8")
 
     defined_types, nullable_none_types = _find_defined_types(content)
@@ -463,7 +517,7 @@ def generate_missing_types(
     if not schemas_for_generation:
         return
 
-    generated = _generate_from_mini_spec(schemas_for_generation)
+    generated = _generate_from_mini_spec(schemas_for_generation, model_options, custom_types)
 
     # Extract class definitions and TypeAlias definitions (skip imports/header)
     code_blocks: list[str] = []
@@ -472,10 +526,15 @@ def generate_missing_types(
     i = 0
     while i < len(lines):
         line = lines[i]
+        decorator: list[str] = []
+        if line.startswith(_CLASS_DECORATOR_PREFIX) and i + 1 < len(lines) and lines[i + 1].startswith("class "):
+            decorator = [line]
+            i += 1
+            line = lines[i]
         if line.startswith("class "):
             match = re.match(r"^class\s+(\w+)", line)
             if match and (match.group(1) not in defined_types or match.group(1) in nullable_none_types):
-                block = [line]
+                block = [*decorator, line]
                 i += 1
                 while i < len(lines) and (lines[i].startswith("    ") or lines[i].strip() == ""):
                     block.append(lines[i])

@@ -53,6 +53,7 @@ from api_client_generator.generate_types_from_swagger import (
     fix_forward_references,
 )
 from api_client_generator.json_rpc.clean_openapi import clean_file
+from api_client_generator.model_options import CustomTypes, ModelOptions
 from api_client_generator.semantic_model_aliases import SemanticModelAlias, apply_semantic_model_aliases
 
 
@@ -67,6 +68,8 @@ def generate_api_description(
     semantic_model_aliases: tuple[SemanticModelAlias, ...] | None = None,
     semantic_model_common_file: str | Path | None = None,
     semantic_model_common_import: str | None = None,
+    model_options: ModelOptions | None = None,
+    custom_types: CustomTypes | None = None,
 ) -> None:
     """
     Generate an API description based on the provided OpenAPI definition.
@@ -83,6 +86,9 @@ def generate_api_description(
         semantic_model_aliases: Stable model names for equivalent generated classes.
         semantic_model_common_file: Optional module path for canonical model classes shared by generated modules.
         semantic_model_common_import: Import path used by the output file to import models from semantic_model_common_file.
+        model_options: Shape of the generated models (msgspec struct / dataclass, base class, frozen, kw_only).
+                       Defaults to plain msgspec structs.
+        custom_types: Custom types replacing OpenAPI types of annotated schema nodes (vendor extension / format).
 
     Raises:
         FileNotFoundError: If the OpenAPI definition file does not exist.
@@ -95,6 +101,8 @@ def generate_api_description(
     generate_types_from_swagger(
         openapi_flattened_definition if openapi_flattened_definition is not None else openapi_api_definition,
         output_file,
+        model_options,
+        custom_types,
     )
 
     api_description: ApiDescriptionBeforeProcessing = {}
@@ -174,7 +182,7 @@ def generate_api_description(
     # Generate full class definitions for types that exist in the original OpenAPI spec
     # but were lost during flattening (their $ref was inlined, losing the schema name)
     if openapi_flattened_definition is not None:
-        generate_missing_types(output_file, openapi_api_definition, used_models)
+        generate_missing_types(output_file, openapi_api_definition, used_models, model_options, custom_types)
 
     # Final pass: remove any remaining TypeAlias with undefined references
     # This handles cases where clean_file couldn't remove them
@@ -186,4 +194,4 @@ def generate_api_description(
             common_import=semantic_model_common_import,
         )
 
-    fix_forward_references(output_file)
+    fix_forward_references(output_file, model_options)

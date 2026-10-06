@@ -5,7 +5,9 @@ from pathlib import Path
 from typing import Final
 
 
-STRUCT_CLASS_REGEX: Final[str] = r"class\s+([A-Za-z0-9_]+)\(Struct\):((?:\n(?:    .*)*)*)"
+MODEL_CLASS_REGEX: Final[str] = r"class\s+([A-Za-z0-9_]+)\([^)]*\):((?:\n(?:    .*)*)*)"
+"""Any generated model class (msgspec struct with or without custom base, dataclass)."""
+STRUCT_CLASS_REGEX: Final[str] = MODEL_CLASS_REGEX  # kept for backward compatibility
 ALIAS_REGEX: Final[str] = r"^([A-Za-z0-9_]+)(?::\s*TypeAlias)?\s*=\s*([^\n]+)"
 MULTILINE_ALIAS_REGEX: Final[str] = r"^([A-Za-z0-9_]+)(?::\s*TypeAlias)?\s*=\s*\(\n((?:.*\n)*?\))"
 ATTRIBUTE_REGEX: Final[str] = r"\b([A-Z][A-Za-z0-9_]+)\b"
@@ -15,7 +17,7 @@ def parse_models_and_aliases(content: str) -> dict[str, set[str]]:
     """Finds all class and alias definitions in the content and builds a dependency map."""
 
     dependency_map: dict[str, set[str]] = {}  # class_name: set of dependencies
-    class_defs = re.findall(STRUCT_CLASS_REGEX, content)
+    class_defs = re.findall(MODEL_CLASS_REGEX, content)
 
     for name, body in class_defs:
         refs = re.findall(ATTRIBUTE_REGEX, body)  # Searching for attributes
@@ -102,7 +104,8 @@ def clean_file(path: Path, roots: set[str]) -> None:
     for name in dependency_map.keys():
         if name not in used:
             class_pattern = re.compile(
-                rf"^class {re.escape(name)}\(Struct\):(?:\n(?:(?:    .*)|\s*\"\"\".*\"\"\"))*", re.MULTILINE
+                rf"^(?:@dataclass(?:\([^)\n]*\))?\n)?class {re.escape(name)}\([^)]*\):(?:\n(?:(?:    .*)|\s*\"\"\".*\"\"\"))*",
+                re.MULTILINE,
             )
             content = class_pattern.sub("", content)
 

@@ -29,7 +29,7 @@ class _ClassInfo:
 
     @property
     def start_line(self) -> int:
-        return self.node.lineno
+        return min([self.node.lineno, *(decorator.lineno for decorator in self.node.decorator_list)])
 
     @property
     def end_line(self) -> int:
@@ -116,7 +116,17 @@ def _collect_classes(tree: ast.Module) -> dict[str, _ClassInfo]:
 
 
 def _is_struct_model(node: ast.ClassDef) -> bool:
-    return any(ast.unparse(base) == "Struct" for base in node.bases)
+    """Every generated class deriving from a base (msgspec Struct, custom base, dataclass base) is a model."""
+    return bool(node.bases)
+
+
+def _imported_names(source: str) -> set[str]:
+    return {
+        alias.asname or alias.name
+        for node in ast.parse(source).body
+        if isinstance(node, ast.ImportFrom | ast.Import)
+        for alias in node.names
+    }
 
 
 def _collect_type_aliases(tree: ast.Module) -> dict[str, str]:
@@ -258,6 +268,7 @@ def _collect_common_candidates(
     plan: _RewritePlan,
 ) -> dict[str, _CommonCandidate]:
     candidates: dict[str, _CommonCandidate] = {}
+    imported_names = _imported_names(source)  # import header is copied to the common module
     for applied_group in plan.applied_groups:
         canonical = applied_group.group.canonical
         primary = applied_group.primary
@@ -273,7 +284,7 @@ def _collect_common_candidates(
         source_block = _class_source(source, classes[primary])
         candidates[canonical] = _CommonCandidate(
             _replace_code_identifiers(source_block, plan.replacements),
-            _class_dependencies(source_node, plan.replacements),
+            _class_dependencies(source_node, plan.replacements) - imported_names,
         )
 
     return candidates
@@ -453,53 +464,45 @@ def _ensure_common_model_import(source: str, common_import: str, names: set[str]
 
 
 def _ensure_common_header(common_source: str, source: str) -> str:
-    header_lines = _extract_import_header(source)
+    header_blocks = _extract_import_header(source)
     if not common_source:
-        return "".join(header_lines).rstrip() + "\n"
+        return "".join(header_blocks).rstrip() + "\n"
+
+    existing_blocks = set(_import_statements(common_source))
+    missing_blocks = [block for block in header_blocks if block not in existing_blocks]
+    if not missing_blocks:
+        return common_source
 
     lines = common_source.splitlines(keepends=True)
     insertion_index = _find_import_insertion_index(lines)
-    missing_header_lines = [line for line in header_lines if line.strip() and line not in lines]
-    if not missing_header_lines:
-        return common_source
-
-    lines[insertion_index:insertion_index] = missing_header_lines
+    lines[insertion_index:insertion_index] = missing_blocks
     return "".join(lines)
 
 
+def _import_statements(source: str) -> list[str]:
+    """Top-level import statements (each possibly spanning multiple lines) as source blocks."""
+    lines = source.splitlines(keepends=True)
+    blocks: list[str] = []
+    for node in ast.parse(source).body:
+        if isinstance(node, ast.Import | ast.ImportFrom):
+            block = "".join(lines[node.lineno - 1 : node.end_lineno or node.lineno])
+            blocks.append(block if block.endswith("\n") else block + "\n")
+    return blocks
+
+
 def _extract_import_header(source: str) -> list[str]:
-    header_lines: list[str] = []
-    for line in source.splitlines(keepends=True):
-        stripped = line.strip()
-        if line.startswith("from __future__ import ") or line.startswith("from ") or line.startswith("import "):
-            header_lines.append(line)
-            continue
-        if line.startswith("class ") or _DESCRIPTION_DICT_PATTERN.match(line):
-            break
-        if header_lines and not stripped:
-            header_lines.append(line)
-
-    if not any(line.startswith("from __future__ import annotations") for line in header_lines):
-        header_lines.insert(0, "from __future__ import annotations\n")
-
-    return header_lines
+    future_import = "from __future__ import annotations\n"
+    blocks = [block for block in _import_statements(source) if block != future_import]
+    return [future_import, "\n", *blocks]
 
 
 def _find_import_insertion_index(lines: Sequence[str]) -> int:
-    insert_index = 0
-    in_import_section = False
-    for index, line in enumerate(lines):
-        stripped = line.strip()
-        if line.startswith("from ") or line.startswith("import "):
-            in_import_section = True
-            insert_index = index + 1
-            continue
-        if in_import_section and not stripped:
-            insert_index = index + 1
-            continue
-        if in_import_section:
-            break
-    return insert_index
+    """Index of the line right after the last top-level import statement (multi-line imports included)."""
+    end_line = 0
+    for node in ast.parse("".join(lines)).body:
+        if isinstance(node, ast.Import | ast.ImportFrom):
+            end_line = node.end_lineno or node.lineno
+    return end_line
 
 
 def _insert_alias_block(source: str, aliases: Mapping[str, str], existing_aliases: Mapping[str, str]) -> str:

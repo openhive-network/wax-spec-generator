@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Any, Protocol, TypeAlias, cast
 
 if TYPE_CHECKING:
     import ast
-    from struct import Struct
 
 AnyJson: TypeAlias = dict[str, "AnyJson"] | list["AnyJson"] | tuple["AnyJson", ...] | str | int | float | bool | None
 SwaggerReadyForExtraction: TypeAlias = dict[str, AnyJson]
@@ -30,7 +29,7 @@ class EndpointsFactory(Protocol):
     def __call__(  # NOQA: PLR0913
         self,
         name: str,
-        params: Struct | None,
+        params: type[Any] | None,
         result: Importable | None,
         endpoint_decorator: str,
         description: str | None,

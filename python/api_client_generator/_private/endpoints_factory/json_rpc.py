@@ -3,8 +3,7 @@ from __future__ import annotations
 import ast
 from typing import Any
 
-from msgspec import NODEFAULT, Struct
-from msgspec.structs import fields
+from msgspec import NODEFAULT
 
 from api_client_generator._private.common.array_handle import (
     format_annotation,
@@ -18,11 +17,12 @@ from api_client_generator._private.endpoints_factory.common import (
 )
 from api_client_generator._private.resolve_needed_imports import is_struct
 from api_client_generator.exceptions import EndpointParamsIsNotMsgspecStructError
+from api_client_generator.model_options import model_fields
 
 
 def create_endpoint(  # NOQA: PLR0913
     name: str,
-    params: Struct | None = None,
+    params: type[Any] | None = None,
     result: Importable | None = None,
     endpoint_decorator: str = DEFAULT_ENDPOINT_JSON_RPC_DECORATOR_NAME,
     description: str | None = None,
@@ -65,7 +65,9 @@ def create_endpoint(  # NOQA: PLR0913
     )
 
 
-def get_endpoint_args(params: Struct | list[Any] | None, *, legacy_args_serialization: bool = False) -> ast.arguments:
+def get_endpoint_args(
+    params: type[Any] | list[Any] | None, *, legacy_args_serialization: bool = False
+) -> ast.arguments:
     """
     Generate arguments for the json-rpc api endpoint method.
 
@@ -108,7 +110,7 @@ def get_endpoint_args(params: Struct | list[Any] | None, *, legacy_args_serializ
     if not is_struct(params):
         raise EndpointParamsIsNotMsgspecStructError
 
-    for param in fields(params):
+    for param in model_fields(params):
         if param.default is not NODEFAULT:
             defaults.append(ast.Constant(value=param.default))
         else:
