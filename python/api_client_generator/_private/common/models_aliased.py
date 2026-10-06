@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol, TypeAlias, cast
+from typing import TYPE_CHECKING, Any, Mapping, Protocol, TypeAlias, cast
 
 if TYPE_CHECKING:
     import ast
@@ -67,4 +67,5 @@ class ClientClassFactory(Protocol):
         *,
         asynchronous: bool,
         legacy_args_serialization: bool,
+        class_attributes: Mapping[str, str] | None = None,
     ) -> ast.ClassDef: ...

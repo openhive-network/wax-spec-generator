@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import typing as t
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING, Any, Mapping, Sequence
 
 from api_client_generator._private.common.array_handle import is_param_array
 from api_client_generator._private.common.defaults import DEFAULT_ENDPOINT_JSON_RPC_DECORATOR_NAME
@@ -83,6 +83,7 @@ def create_client_and_imports(  # NOQA: PLR0913
     *,
     asynchronous: bool = True,
     legacy_args_serialization: bool = False,
+    class_attributes: Mapping[str, str] | None = None,
 ) -> GeneratedClass:
     """
     Create a client class and resolve the needed imports.
@@ -98,6 +99,7 @@ def create_client_and_imports(  # NOQA: PLR0913
         already_imported: A list of already imported items.
         asynchronous: If True, the endpoints will be created as asynchronous methods.
         legacy_args_serialization: If True, endpoint arguments will be `posonlyargs`.
+        class_attributes: String class attributes added to the generated client class (name -> value).
 
     Raises:
         EndpointParamsIsNotDataclassError: If the endpoint parameters are not a dataclass.
@@ -137,6 +139,10 @@ def create_client_and_imports(  # NOQA: PLR0913
         already_imported.append(base_class_name)
         needed_imports.append(base_class_import)
 
+    factory_kwargs: dict[str, Any] = {}
+    if class_attributes:
+        factory_kwargs["class_attributes"] = class_attributes
+
     return GeneratedClass(
         client_class_factory(
             api_name,
@@ -145,6 +151,7 @@ def create_client_and_imports(  # NOQA: PLR0913
             endpoint_decorator,
             asynchronous=asynchronous,
             legacy_args_serialization=legacy_args_serialization,
+            **factory_kwargs,
         ),
         needed_imports,
     )

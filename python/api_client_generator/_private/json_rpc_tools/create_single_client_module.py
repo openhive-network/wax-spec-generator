@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import ast
-from typing import Sequence
+from typing import Mapping, Sequence
 
 from api_client_generator._private.common.defaults import DEFAULT_ENDPOINT_JSON_RPC_DECORATOR_NAME
 from api_client_generator._private.common.models_aliased import (
@@ -28,6 +28,7 @@ def create_single_client_module(  # NOQA: PLR0913
     *,
     asynchronous: bool = True,
     legacy_args_serialization: bool = False,
+    class_attributes: Mapping[str, str] | None = None,
 ) -> ast.Module:
     """
     Generate an API client class based on the provided API name, description, and type.
@@ -41,6 +42,7 @@ def create_single_client_module(  # NOQA: PLR0913
         additional_items_to_import(: Additional things to import in the created module.
         asynchronous: If True, the endpoints will be created as asynchronous methods.
         legacy_args_serialization: If True, endpoint arguments will be `posonlyargs`.
+        class_attributes: String class attributes added to the generated client class (name -> value).
 
     Raises:
         AssertionError: If the API description does not contain endpoints.
@@ -60,6 +62,7 @@ def create_single_client_module(  # NOQA: PLR0913
         additional_items_to_import,
         asynchronous=asynchronous,
         legacy_args_serialization=legacy_args_serialization,
+        class_attributes=class_attributes,
     )
 
     return ast.Module(

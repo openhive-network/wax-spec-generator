@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import ast
 import json
+import textwrap
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from api_client_generator._private.client_class_factory.common import create_api_client
+from api_client_generator._private.endpoints_factory import create_json_rpc_endpoint
 from api_client_generator.exceptions import UnknownCustomTypeError
 from api_client_generator.json_rpc import generate_api_description
 from api_client_generator.model_options import CustomTypes, ModelOptions, is_model, model_fields
@@ -204,3 +207,29 @@ def test_model_helpers_support_structs_and_dataclasses() -> None:
         ]
     assert not is_model(int)
     assert not is_model(list[int])
+
+
+def test_client_class_attributes_are_emitted() -> None:
+    # ACT
+    class_def = create_api_client(
+        "test_api",
+        {},
+        create_json_rpc_endpoint,  # type: ignore[arg-type]
+        "BaseApi",
+        "endpoint",
+        class_attributes={"__validation_module__": "pkg._validation.test_api", "__serialization__": "legacy"},
+    )
+
+    # ASSERT
+    source = ast.unparse(ast.fix_missing_locations(ast.Module(body=[class_def], type_ignores=[])))
+    assert (
+        textwrap.dedent(
+            """
+        __validation_module__ = 'pkg._validation.test_api'
+        __serialization__ = 'legacy'
+        """
+        )
+        .strip()
+        .replace("\n", "\n    ")
+        in source
+    )
