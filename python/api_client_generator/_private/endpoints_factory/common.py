@@ -63,11 +63,12 @@ def create_endpoint(  # NOQA: PLR0913
     if isinstance(result_type, str):
         returns = ast.Name(id=result_type)
     elif result_type is not None:
-        if not response_array:
+        if typing.get_origin(result_type) is list:
+            # result given as a generic type (e.g. list[str]) - an element which itself is a list, or the whole array
+            item = _format_generic_list(result_type)
+            returns = ast.Name(id=f"list[{item}]" if response_array else item)
+        elif not response_array:
             returns = ast.Name(id=result_type.__name__)
-        elif typing.get_origin(result_type) is list:
-            # Already a generic list type (e.g. list[str]) — use as-is, don't double-wrap
-            returns = ast.Name(id=_format_generic_list(result_type))
         else:
             returns = ast.Name(id=f"list[{result_type.__name__}]")
     else:

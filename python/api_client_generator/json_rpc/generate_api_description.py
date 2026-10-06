@@ -127,16 +127,18 @@ def generate_api_description(
         }
 
         if is_result_array(result_name, components):
-            endpoint_description["response_array"] = True
-
             assert isinstance(endpoint_description["result"], str), "Result must be a string at this point."
 
+            # `response_array` marks that `result` describes a single ELEMENT of the returned array. Without an item
+            # model (no $ref, no "Item" suffix) `result` is the whole array type and must not be wrapped again.
             potential_ref = components[result_name].get("items", {}).get("$ref")
             if potential_ref:  # This means that the elements of the array are represented by a custom class/model/components, which are contained in the components section.
+                endpoint_description["response_array"] = True
                 endpoint_description["result"] = snake_to_camel(
                     get_last_part_of_ref(components[result_name]["items"]["$ref"])
                 )
             elif allow_passing_item_suffix:
+                endpoint_description["response_array"] = True
                 endpoint_description["result"] += "Item"
 
         api_description[api_name][endpoint_name] = endpoint_description
