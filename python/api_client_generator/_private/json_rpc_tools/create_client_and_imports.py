@@ -3,7 +3,7 @@ from __future__ import annotations
 import typing as t
 from typing import TYPE_CHECKING, Any, Mapping, Sequence
 
-from api_client_generator._private.common.array_handle import is_param_array
+from api_client_generator._private.common.array_handle import is_param_array, uses_literal
 from api_client_generator._private.common.defaults import DEFAULT_ENDPOINT_JSON_RPC_DECORATOR_NAME
 from api_client_generator._private.common.generated_class import GeneratedClass
 from api_client_generator._private.common.models_aliased import (
@@ -62,6 +62,12 @@ def _import_annotation_type(annotation: Any, already_imported: list[str]) -> "as
 
 def _collect_generic_type_imports(annotation: Any, already_imported: list[str]) -> list["ast.ImportFrom"]:
     imports: list["ast.ImportFrom"] = []
+
+    if uses_literal(annotation) and "Literal" not in already_imported:
+        import_stmt = import_class("Literal", "typing")
+        if import_stmt:
+            already_imported.append("Literal")
+            imports.append(import_stmt)
 
     for nested in _iter_annotation_leaf_types(annotation):
         import_stmt = _import_annotation_type(nested, already_imported)

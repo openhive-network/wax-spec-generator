@@ -264,3 +264,17 @@ def test_enums_as_literals(tmp_path: Path) -> None:
     source = output.read_text()
     assert "Literal['on', 'off']" in source or 'Literal["on", "off"]' in source
     assert "Enum" not in source
+
+
+def test_literal_annotations_of_array_params() -> None:
+    # ARRANGE
+    from typing import Literal
+
+    from api_client_generator._private.common.array_handle import format_annotation, uses_literal
+
+    annotation = list[list[str | Literal["incoming", "outgoing"]]]
+
+    # ACT & ASSERT
+    assert format_annotation(annotation) == "list[list[str | Literal['incoming', 'outgoing']]]"
+    assert uses_literal(annotation)
+    assert not uses_literal(list[str])

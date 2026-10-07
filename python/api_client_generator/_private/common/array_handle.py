@@ -70,6 +70,9 @@ def format_annotation(annotation: Any) -> str:
 
     args = t.get_args(annotation)
 
+    if origin is t.Literal:
+        return f"Literal[{', '.join(repr(arg) for arg in args)}]"
+
     if origin is list:
         return f"list[{_format_collection_args(args)}]"
 
@@ -101,3 +104,10 @@ def _format_collection_args(args: tuple[Any, ...]) -> str:
         return format_annotation(args[0])
 
     return " | ".join(format_annotation(arg) for arg in args)
+
+
+def uses_literal(annotation: Any) -> bool:
+    """Return True when the annotation contains `Literal[...]` (it has to be imported from typing)."""
+    if t.get_origin(annotation) is t.Literal:
+        return True
+    return any(uses_literal(arg) for arg in t.get_args(annotation))
