@@ -3,19 +3,13 @@ from __future__ import annotations
 import ast
 import typing
 
+from api_client_generator._private.common.array_handle import format_annotation
 from api_client_generator._private.common.models_aliased import Importable
 
 
 def _format_generic_list(result_type: Importable) -> str:
-    """Format a generic list type (e.g. list[str]) as a string for AST annotation.
-
-    Handles typing module types like Any that str() renders as 'typing.Any'.
-    """
-    args = typing.get_args(result_type)
-    if args:
-        arg_name = args[0].__name__ if hasattr(args[0], "__name__") else str(args[0])
-        return f"list[{arg_name}]"
-    return "list"
+    """Format a generic list type (e.g. list[str], list[A | B]) as a string for AST annotation."""
+    return format_annotation(result_type) if typing.get_args(result_type) else "list"
 
 
 def create_endpoint(  # NOQA: PLR0913
@@ -62,6 +56,10 @@ def create_endpoint(  # NOQA: PLR0913
 
     if isinstance(result_type, str):
         returns = ast.Name(id=result_type)
+    elif result_type is not None and not isinstance(result_type, type) and typing.get_origin(result_type) is not list:
+        # e.g. union (`Model | None`) or Literal - render the whole annotation, not just its type name
+        annotation = format_annotation(result_type)
+        returns = ast.Name(id=f"list[{annotation}]" if response_array else annotation)
     elif result_type is not None:
         if typing.get_origin(result_type) is list:
             # result given as a generic type (e.g. list[str]) - an element which itself is a list, or the whole array

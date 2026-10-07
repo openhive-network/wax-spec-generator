@@ -115,8 +115,12 @@ def create_client_and_imports(  # NOQA: PLR0913
     if already_imported is None:
         already_imported = []
 
-    needed_results = [ensure_is_importable(params["result"]) for params in endpoints.values() if params.get("result")]
+    results = [params["result"] for params in endpoints.values() if params.get("result")]
+    needed_results = [ensure_is_importable(result) for result in results if isinstance(result, type)]
     needed_results_import = import_classes(needed_results, already_imported)
+    for result in results:  # generic results (unions, lists, Literal) - import their member types
+        if not isinstance(result, type):
+            needed_results_import.extend(_collect_generic_type_imports(result, already_imported))
 
     needed_params_import = []
 
