@@ -233,3 +233,34 @@ def test_client_class_attributes_are_emitted() -> None:
         .replace("\n", "\n    ")
         in source
     )
+
+
+def test_enums_as_literals(tmp_path: Path) -> None:
+    # ARRANGE
+    openapi = {
+        "openapi": "3.1.0",
+        "info": {"title": "test", "version": "1"},
+        "paths": {},
+        "components": {
+            "schemas": {
+                "status": {
+                    "type": "object",
+                    "properties": {"state": {"type": "string", "enum": ["on", "off"]}},
+                    "required": ["state"],
+                }
+            }
+        },
+    }
+    openapi_file = tmp_path / "openapi.json"
+    openapi_file.write_text(json.dumps(openapi))
+    output = tmp_path / "models.py"
+
+    # ACT
+    from api_client_generator.generate_types_from_swagger import generate_types_from_swagger
+
+    generate_types_from_swagger(openapi_file, output, ModelOptions(model_type="dataclass", enum_as_literal=True))
+
+    # ASSERT
+    source = output.read_text()
+    assert "Literal['on', 'off']" in source or 'Literal["on", "off"]' in source
+    assert "Enum" not in source

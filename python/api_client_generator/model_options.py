@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Literal
 
-from datamodel_code_generator import DataModelType, InputFileType, PythonVersion
+from datamodel_code_generator import DataModelType, InputFileType, LiteralType, PythonVersion
 from msgspec import NODEFAULT, Struct
 from msgspec.structs import fields as struct_fields
 
@@ -48,12 +48,15 @@ class ModelOptions:
                     For `msgspec` it must be a `msgspec.Struct` subclass.
         frozen: Generate immutable models (only for `dataclass`).
         kw_only: Generate keyword-only models.
+        enum_as_literal: Generate enums as `Literal[...]` of their values instead of `Enum` classes (values stay plain
+                         builtins, e.g. for models built from parsed JSON without conversion).
     """
 
     model_type: ModelType = "msgspec"
     base_class: str | None = None
     frozen: bool = False
     kw_only: bool = False
+    enum_as_literal: bool = False
 
     @property
     def base_class_name(self) -> str:
@@ -79,6 +82,8 @@ class ModelOptions:
             kwargs["keyword_only"] = True
         if self.frozen and self.model_type == "dataclass":
             kwargs["frozen_dataclasses"] = True
+        if self.enum_as_literal:
+            kwargs["enum_field_as_literal"] = LiteralType.All
         return kwargs
 
 
