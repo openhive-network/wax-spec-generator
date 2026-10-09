@@ -278,3 +278,66 @@ def test_literal_annotations_of_array_params() -> None:
     assert format_annotation(annotation) == "list[list[str | Literal['incoming', 'outgoing']]]"
     assert uses_literal(annotation)
     assert not uses_literal(list[str])
+
+
+def test_dataclass_fields_keep_original_keys_in_metadata(tmp_path: Path) -> None:
+    # ARRANGE
+    import dataclasses
+    from typing import get_type_hints
+
+    from api_client_generator.generate_types_from_swagger import generate_types_from_swagger
+
+    openapi = {
+        "openapi": "3.1.0",
+        "info": {"title": "test", "version": "1"},
+        "paths": {},
+        "components": {
+            "schemas": {
+                "records": {
+                    "type": "object",
+                    "properties": {
+                        "from": {"type": "string"},
+                        "Block stats": {"type": "integer"},
+                        "last-names": {"type": "array", "items": {"type": "string"}, "default": []},
+                        "limit": {"type": "integer", "default": 5},
+                        "name": {"type": "string"},
+                    },
+                    "required": ["from"],
+                }
+            }
+        },
+    }
+    openapi_file = tmp_path / "openapi.json"
+    openapi_file.write_text(json.dumps(openapi))
+    output = tmp_path / "models.py"
+
+    # ACT
+    generate_types_from_swagger(openapi_file, output, ModelOptions(model_type="dataclass", frozen=True, kw_only=True))
+
+    # ASSERT
+    namespace: dict[str, Any] = {}
+    exec(compile(output.read_text(), str(output), "exec"), namespace)  # noqa: S102
+    records = namespace["Records"]
+    get_type_hints(records, namespace)
+    fields = {field_.name: field_ for field_ in dataclasses.fields(records)}
+    assert {name: dict(field_.metadata) for name, field_ in fields.items()} == {
+        "from_": {"alias": "from"},
+        "Block_stats": {"alias": "Block stats"},
+        "last_names": {"alias": "last-names"},
+        "limit": {},
+        "name": {},
+    }
+    assert fields["from_"].default is dataclasses.MISSING
+    assert fields["Block_stats"].default is None
+    assert fields["last_names"].default_factory() == []  # type: ignore[misc]
+    assert fields["limit"].default == 5  # noqa: PLR2004
+    assert fields["name"].default is None
+
+
+def test_msgspec_models_keep_original_keys_in_field_names(tmp_path: Path) -> None:
+    # ACT
+    source = generate(tmp_path, ModelOptions(model_type="msgspec", kw_only=True), None)
+
+    # ASSERT
+    assert "metadata" not in source
+    assert "from_: str = field(name='from')" in source

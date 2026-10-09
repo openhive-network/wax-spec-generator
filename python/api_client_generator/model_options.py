@@ -26,6 +26,8 @@ if TYPE_CHECKING:
 
 ModelType = Literal["msgspec", "dataclass"]
 
+TEMPLATES_DIRECTORY: Final[Path] = Path(__file__).parent / "_private" / "templates"
+"""Custom datamodel-code-generator templates (dataclass fields keep their original JSON keys in metadata)."""
 _COMPONENT_REF_PREFIX: Final[str] = "#/components/schemas/"
 _CUSTOM_TYPE_PATH_KEY: Final[str] = "customTypePath"
 _UNION_KEYS: Final[frozenset[str]] = frozenset({"oneOf", "anyOf"})
@@ -66,6 +68,12 @@ class ModelOptions:
         return "Struct" if self.model_type == "msgspec" else "object"
 
     def generate_kwargs(self) -> dict[str, Any]:
+        """
+        Keyword arguments of `datamodel_code_generator.generate` producing models of this shape.
+
+        Dataclass fields renamed in Python (e.g. `from` -> `from_`) keep their original key in
+        `field(metadata={"alias": ...})`.
+        """
         kwargs: dict[str, Any] = {
             "output_model_type": DataModelType.MsgspecStruct
             if self.model_type == "msgspec"
@@ -80,6 +88,8 @@ class ModelOptions:
             kwargs["base_class"] = self.base_class
         if self.kw_only:
             kwargs["keyword_only"] = True
+        if self.model_type == "dataclass":
+            kwargs["custom_template_dir"] = TEMPLATES_DIRECTORY
         if self.frozen and self.model_type == "dataclass":
             kwargs["frozen_dataclasses"] = True
         if self.enum_as_literal:

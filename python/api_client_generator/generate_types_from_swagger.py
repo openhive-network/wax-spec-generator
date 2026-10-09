@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import json
 import os
 import re
@@ -62,6 +63,8 @@ def generate_types_from_swagger(
 
     fix_relative_imports(output, path_to_add_to_imports)
     fix_malformed_typealias(output)
+    if model_options.model_type == "dataclass":
+        fix_dataclass_field_import(output)
     fix_forward_references(output, model_options)
 
 
@@ -174,6 +177,45 @@ def fix_malformed_typealias(output: Path) -> None:
         fixed_content = "\n".join(fixed_lines)
         if fixed_content != content:
             py_file.write_text(fixed_content, encoding="utf-8")
+
+
+def fix_dataclass_field_import(output: Path) -> None:
+    """
+    Import `dataclasses.field` in generated files which use it but do not import it.
+
+    The dataclass template (see `model_options.TEMPLATES_DIRECTORY`) renders `field(metadata={"alias": ...})` for
+    renamed fields, while datamodel-code-generator collects imports before rendering, so it may miss `field`.
+
+    Args:
+        output: Output file path or directory containing generated files.
+    """
+    files_to_fix = [output] if output.is_file() else list(output.rglob("*.py"))
+
+    for py_file in files_to_fix:
+        content = py_file.read_text(encoding="utf-8")
+        tree = ast.parse(content)
+        uses_field = any(
+            isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "field"
+            for node in ast.walk(tree)
+        )
+        if not uses_field or "field" in _imported_names(content):
+            continue
+
+        lines = content.split("\n")
+        dataclasses_import = next(
+            (
+                node
+                for node in tree.body
+                if isinstance(node, ast.ImportFrom) and node.module == "dataclasses" and node.level == 0
+            ),
+            None,
+        )
+        if dataclasses_import is None:
+            raise ValueError(f"{py_file}: uses dataclasses.field, but does not import from dataclasses")
+        dataclasses_import.names.append(ast.alias(name="field"))
+        start, end = dataclasses_import.lineno - 1, dataclasses_import.end_lineno or dataclasses_import.lineno
+        lines[start:end] = [ast.unparse(dataclasses_import)]
+        py_file.write_text("\n".join(lines), encoding="utf-8")
 
 
 def fix_forward_references(output: Path, model_options: ModelOptions | None = None) -> None:

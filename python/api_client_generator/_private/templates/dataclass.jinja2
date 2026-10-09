@@ -1,0 +1,64 @@
+{#- Copy of the datamodel-code-generator dataclass template. The only change: fields renamed in Python
+    (e.g. `Block stats` -> `Block_stats`, `from` -> `from_`) keep their original key in
+    `field(metadata={"alias": ...})`, the same way msgspec models keep it in `field(name=...)`. -#}
+{% for decorator in decorators -%}
+{{ decorator }}
+{% endfor -%}
+{%- set args = [] %}
+{%- for k, v in (dataclass_arguments or {}).items() %}
+    {%- if v is not none and v is not false %}
+        {%- set _ = args.append(k ~ '=' ~ (v|pprint)) %}
+    {%- endif %}
+{%- endfor %}
+{%- if args %}
+@dataclass({{ args | join(', ') }})
+{%- else %}
+@dataclass
+{%- endif %}
+{%- if base_class %}
+class {{ class_name }}({{ base_class }}):
+{%- else %}
+class {{ class_name }}:
+{%- endif %}
+{%- if description %}
+    """
+    {{ description | escape_docstring | indent(4) }}
+    """
+{%- endif %}
+{%- if not fields and not description %}
+    pass
+{%- endif %}
+{%- for field in fields -%}
+    {%- if field.alias and field.alias != field.name %}
+    {%- set metadata = 'metadata={"alias": ' ~ (field.alias|pprint) ~ '}' %}
+    {%- if field.field and field.field.startswith('field(') %}
+    {{ field.name }}: {{ field.type_hint }} = {{ field.field[:-1] }}, {{ metadata }})
+    {%- elif field.field %}
+    {{ field.name }}: {{ field.type_hint }} = field(default={{ field.field }}, {{ metadata }})
+    {%- elif field.required or (field.represented_default == 'None' and field.strip_default_none) %}
+    {{ field.name }}: {{ field.type_hint }} = field({{ metadata }})
+    {%- else %}
+    {{ field.name }}: {{ field.type_hint }} = field(default={{ field.represented_default }}, {{ metadata }})
+    {%- endif %}
+    {%- elif field.field %}
+    {{ field.name }}: {{ field.type_hint }} = {{ field.field }}
+    {%- else %}
+    {{ field.name }}: {{ field.type_hint }}
+    {%- if not (field.required or (field.represented_default == 'None' and field.strip_default_none))
+            %} = {{ field.represented_default }}
+    {%- endif -%}
+    {%- endif %}
+    {%- if field.docstring %}
+    """
+    {{ field.docstring | escape_docstring | indent(4) }}
+    """
+{%- if field.use_inline_field_description and not loop.last %}
+
+{% endif %}
+    {%- elif field.inline_field_docstring %}
+    {{ field.inline_field_docstring }}
+{%- if not loop.last %}
+
+{% endif %}
+    {%- endif %}
+{%- endfor -%}
