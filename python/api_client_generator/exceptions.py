@@ -32,10 +32,10 @@ class RunningScriptWithoutAppropriateFlagError(ApiClientGeneratorError):
 
 
 class EndpointParamsIsNotMsgspecStructError(ApiClientGeneratorError):
-    """Exception raised when the endpoint parameters are not a msgspec struct."""
+    """Exception raised when the endpoint parameters are not a model (msgspec struct or dataclass)."""
 
     def __init__(self, endpoint_name: str = "any") -> None:
-        self.message = f"Params for {endpoint_name} endpoint must be a msgspec struct"
+        self.message = f"Params for {endpoint_name} endpoint must be a msgspec struct or a dataclass"
         self.endpoint_name = endpoint_name
         super().__init__(self.message)
 
@@ -54,4 +54,13 @@ class UnsupportedHttpMethodError(ApiClientGeneratorError):
     def __init__(self, method: str) -> None:
         self.message = f"Unsupported HTTP method: {method}."
         self.method = method
+        super().__init__(self.message)
+
+
+class UnknownCustomTypeError(ApiClientGeneratorError):
+    """Exception raised when the OpenAPI definition references a custom type which was not provided."""
+
+    def __init__(self, name: str, available: tuple[str, ...]) -> None:
+        self.message = f"Unknown custom type `{name}`. Available: {', '.join(sorted(available))}."
+        self.name = name
         super().__init__(self.message)

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import ast
 import re
 from pathlib import Path
 from typing import Final
 
 
-STRUCT_CLASS_REGEX: Final[str] = r"class\s+([A-Za-z0-9_]+)\(Struct\):((?:\n(?:    .*)*)*)"
+MODEL_CLASS_REGEX: Final[str] = r"class\s+([A-Za-z0-9_]+)\([^)]*\):((?:\n(?:    .*)*)*)"
+"""Any generated model class (msgspec struct with or without custom base, dataclass)."""
+STRUCT_CLASS_REGEX: Final[str] = MODEL_CLASS_REGEX  # kept for backward compatibility
 ALIAS_REGEX: Final[str] = r"^([A-Za-z0-9_]+)(?::\s*TypeAlias)?\s*=\s*([^\n]+)"
 MULTILINE_ALIAS_REGEX: Final[str] = r"^([A-Za-z0-9_]+)(?::\s*TypeAlias)?\s*=\s*\(\n((?:.*\n)*?\))"
 ATTRIBUTE_REGEX: Final[str] = r"\b([A-Z][A-Za-z0-9_]+)\b"
@@ -13,9 +16,50 @@ ATTRIBUTE_REGEX: Final[str] = r"\b([A-Z][A-Za-z0-9_]+)\b"
 
 def parse_models_and_aliases(content: str) -> dict[str, set[str]]:
     """Finds all class and alias definitions in the content and builds a dependency map."""
+    try:
+        return _parse_models_and_aliases_ast(content)
+    except SyntaxError:
+        return _parse_models_and_aliases_regex(content)
 
+
+def _parse_models_and_aliases_ast(content: str) -> dict[str, set[str]]:
+    """
+    Dependencies taken only from code (field annotations, defaults, alias values, class bases).
+
+    Unlike the regex variant, capitalized words in docstrings are not mistaken for model references.
+    """
+    dependency_map: dict[str, set[str]] = {}
+    for node in ast.parse(content).body:
+        if isinstance(node, ast.ClassDef):
+            expressions: list[ast.AST] = [*node.bases, *node.keywords]
+            for statement in node.body:
+                if isinstance(statement, ast.AnnAssign):
+                    expressions.append(statement.annotation)
+                    if statement.value is not None:
+                        expressions.append(statement.value)
+            dependency_map[node.name] = _referenced_names(expressions) - {node.name}
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.value is not None:
+            dependency_map[node.target.id] = _referenced_names([node.value]) - {node.target.id}
+        elif isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+            dependency_map[node.targets[0].id] = _referenced_names([node.value]) - {node.targets[0].id}
+    return dependency_map
+
+
+def _referenced_names(expressions: list[ast.AST]) -> set[str]:
+    names: set[str] = set()
+    for expression in expressions:
+        for child in ast.walk(expression):
+            if isinstance(child, ast.Name) and re.fullmatch(ATTRIBUTE_REGEX, child.id):
+                names.add(child.id)
+            elif isinstance(child, ast.Constant) and isinstance(child.value, str):  # forward references
+                names.update(re.findall(ATTRIBUTE_REGEX, child.value))
+    return names
+
+
+def _parse_models_and_aliases_regex(content: str) -> dict[str, set[str]]:
+    """Fallback for content which is not valid python - dependencies found by regexes (also in docstrings)."""
     dependency_map: dict[str, set[str]] = {}  # class_name: set of dependencies
-    class_defs = re.findall(STRUCT_CLASS_REGEX, content)
+    class_defs = re.findall(MODEL_CLASS_REGEX, content)
 
     for name, body in class_defs:
         refs = re.findall(ATTRIBUTE_REGEX, body)  # Searching for attributes
@@ -102,7 +146,8 @@ def clean_file(path: Path, roots: set[str]) -> None:
     for name in dependency_map.keys():
         if name not in used:
             class_pattern = re.compile(
-                rf"^class {re.escape(name)}\(Struct\):(?:\n(?:(?:    .*)|\s*\"\"\".*\"\"\"))*", re.MULTILINE
+                rf"^(?:@dataclass(?:\([^)\n]*\))?\n)?class {re.escape(name)}\([^)]*\):(?:\n(?:(?:    .*)|\s*\"\"\".*\"\"\"))*",
+                re.MULTILINE,
             )
             content = class_pattern.sub("", content)
 
