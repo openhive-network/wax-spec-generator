@@ -1,0 +1,360 @@
+from __future__ import annotations
+
+import ast
+import json
+import textwrap
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+import pytest
+
+from api_client_generator._private.client_class_factory.common import create_api_client
+from api_client_generator._private.endpoints_factory import create_json_rpc_endpoint
+from api_client_generator.exceptions import UnknownCustomTypeError
+from api_client_generator.json_rpc import generate_api_description
+from api_client_generator.model_options import CustomTypes, ModelOptions, is_model, model_fields
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+OPENAPI: dict[str, object] = {
+    "openapi": "3.1.0",
+    "info": {"title": "test", "version": "1"},
+    "paths": {
+        "test_api.get_account": {
+            "post": {
+                "requestBody": {
+                    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/get_account"}}}
+                },
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {"schema": {"$ref": "#/components/schemas/get_account_response"}}
+                        }
+                    }
+                },
+            }
+        },
+        "test_api.get_names": {
+            "post": {
+                "requestBody": {
+                    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/get_account"}}}
+                },
+                "responses": {
+                    "200": {
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/get_names_response"}}}
+                    }
+                },
+            }
+        },
+    },
+    "components": {
+        "schemas": {
+            "big_int": {"x-test-type": "BigInt", "oneOf": [{"type": "string"}, {"type": "integer"}]},
+            "get_account": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+            "get_account_response": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "x-test-type": "Name"},
+                    "from": {"type": "string"},
+                    "balance": {"$ref": "#/components/schemas/big_int"},
+                    "created": {"type": "string", "format": "date-time"},
+                    "id_or_object": {"oneOf": [{"type": "integer", "x-test-type": "Id"}, {"type": "object"}]},
+                    "comment": {"type": "string"},
+                },
+                "required": ["name", "from", "balance", "created"],
+            },
+            "get_names_response": {"type": "array", "items": {"type": "string"}},
+        }
+    },
+}
+
+TYPES = {
+    "Name": "my_types.Name",
+    "BigInt": "my_types.BigInt",
+    "Time": "my_types.Time",
+    "Id": "my_types.Id",
+}
+
+
+def custom_types(*, types: Mapping[str, str] = TYPES, skip_in_unions: bool = False) -> CustomTypes:
+    return CustomTypes(
+        types=types, extension="x-test-type", format_types={"date-time": "Time"}, skip_in_unions=skip_in_unions
+    )
+
+
+def json_object(document: object, *path: str | int) -> dict[str, object]:
+    """JSON object found in the document by keys of objects and indexes of arrays."""
+    node = document
+    for key in path:
+        if isinstance(key, int) and isinstance(node, list):
+            node = node[key]
+        elif isinstance(key, str) and isinstance(node, dict):
+            node = node[key]
+        else:
+            raise AssertionError(f"{key!r} cannot be taken from {node!r}")
+    assert isinstance(node, dict), f"{'/'.join(map(str, path))}: not an object"
+    return node
+
+
+def generate(tmp_path: Path, model_options: ModelOptions, types: CustomTypes | None) -> str:
+    openapi_file = tmp_path / "openapi.json"
+    openapi_file.write_text(json.dumps(OPENAPI))
+    output = tmp_path / "description.py"
+    generate_api_description(
+        "test_api_description",
+        openapi_file,
+        output,
+        allow_passing_item_suffix=False,
+        model_options=model_options,
+        custom_types=types,
+    )
+    return output.read_text()
+
+
+def classes(source: str) -> dict[str, ast.ClassDef]:
+    return {node.name: node for node in ast.parse(source).body if isinstance(node, ast.ClassDef)}
+
+
+def annotation(class_node: ast.ClassDef, field_name: str) -> str:
+    for statement in class_node.body:
+        if isinstance(statement, ast.AnnAssign) and ast.unparse(statement.target) == field_name:
+            return ast.unparse(statement.annotation)
+    raise AssertionError(f"{field_name} not found")
+
+
+def test_custom_types_are_applied_by_extension_ref_and_format() -> None:
+    # ACT
+    applied = custom_types().apply(OPENAPI)
+
+    # ASSERT
+    response = json_object(applied, "components", "schemas", "get_account_response", "properties")
+    assert json_object(response, "name")["customTypePath"] == "my_types.Name"
+    assert json_object(response, "balance")["customTypePath"] == "my_types.BigInt"  # from the referenced component
+    assert json_object(response, "created")["customTypePath"] == "my_types.Time"  # from format
+    assert "customTypePath" not in json_object(response, "comment")
+    original = json_object(OPENAPI, "components", "schemas", "get_account_response", "properties", "name")
+    assert "customTypePath" not in original
+
+
+def test_custom_types_can_be_skipped_in_unions() -> None:
+    # ACT
+    applied = custom_types(skip_in_unions=True).apply(OPENAPI)
+    applied_in_unions = custom_types().apply(OPENAPI)
+
+    # ASSERT
+    union = "/".join(["get_account_response", "properties", "id_or_object"])
+    path = ("components", "schemas", "get_account_response", "properties", "id_or_object", "oneOf", 0)
+    assert "customTypePath" not in json_object(applied, *path), union
+    assert json_object(applied_in_unions, *path)["customTypePath"] == "my_types.Id"
+
+
+def test_unknown_custom_type_raises() -> None:
+    # ACT & ASSERT
+    with pytest.raises(UnknownCustomTypeError, match="Name"):
+        custom_types(types={"BigInt": "my_types.BigInt", "Time": "my_types.Time", "Id": "my_types.Id"}).apply(OPENAPI)
+
+
+def test_dataclass_models_with_base_class_and_custom_types(tmp_path: Path) -> None:
+    # ACT
+    source = generate(
+        tmp_path,
+        ModelOptions(model_type="dataclass", base_class="my_base.Model", frozen=True, kw_only=True),
+        custom_types(),
+    )
+
+    # ASSERT
+    response = classes(source)["GetAccountResponse"]
+    assert [ast.unparse(base) for base in response.bases] == ["Model"]
+    assert [ast.unparse(decorator) for decorator in response.decorator_list] == ["dataclass(frozen=True, kw_only=True)"]
+    assert annotation(response, "name") == "Name"
+    assert annotation(response, "balance") == "BigInt"
+    assert annotation(response, "created") == "Time"
+    assert annotation(response, "from_") == "str"
+    assert "from my_base import Model" in source
+    assert "from my_types import" in source
+
+
+def test_msgspec_models_with_base_class(tmp_path: Path) -> None:
+    # ACT
+    source = generate(tmp_path, ModelOptions(model_type="msgspec", base_class="my_base.Struct2", kw_only=True), None)
+
+    # ASSERT
+    response = classes(source)["GetAccountResponse"]
+    assert [ast.unparse(base) for base in response.bases] == ["Struct2"]
+    assert [ast.unparse(keyword) for keyword in response.keywords] == ["kw_only=True"]
+    assert annotation(response, "name") == "str"
+
+
+def test_array_result_without_item_model_is_not_marked_as_response_array(tmp_path: Path) -> None:
+    # ACT
+    source = generate(tmp_path, ModelOptions(), None)
+
+    # ASSERT
+    description = source[source.index("test_api_description = ") :]
+    get_names = description[description.index('"get_names"') :]
+    assert '"result": GetNamesResponse,' in get_names
+    assert '"response_array"' not in get_names[: get_names.index("}")]
+
+
+def test_model_helpers_support_structs_and_dataclasses() -> None:
+    # ARRANGE
+    import dataclasses
+
+    import msgspec
+
+    class StructModel(msgspec.Struct):
+        a: int
+        b: str = "x"
+
+    @dataclasses.dataclass
+    class DataclassModel:
+        a: int
+        b: str = "x"
+
+    # ACT & ASSERT
+    for model in (StructModel, DataclassModel):
+        assert is_model(model)
+        fields = model_fields(model)
+        assert [(field.name, field.type, field.default) for field in fields] == [
+            ("a", int, msgspec.NODEFAULT),
+            ("b", str, "x"),
+        ]
+    assert not is_model(int)
+    assert not is_model(list[int])
+
+
+def test_client_class_attributes_are_emitted() -> None:
+    # ACT
+    class_def = create_api_client(
+        "test_api",
+        {},
+        create_json_rpc_endpoint,
+        "BaseApi",
+        "endpoint",
+        class_attributes={"__validation_module__": "pkg._validation.test_api", "__serialization__": "legacy"},
+    )
+
+    # ASSERT
+    source = ast.unparse(ast.fix_missing_locations(ast.Module(body=[class_def], type_ignores=[])))
+    assert (
+        textwrap.dedent(
+            """
+        __validation_module__ = 'pkg._validation.test_api'
+        __serialization__ = 'legacy'
+        """
+        )
+        .strip()
+        .replace("\n", "\n    ")
+        in source
+    )
+
+
+def test_enums_as_literals(tmp_path: Path) -> None:
+    # ARRANGE
+    openapi = {
+        "openapi": "3.1.0",
+        "info": {"title": "test", "version": "1"},
+        "paths": {},
+        "components": {
+            "schemas": {
+                "status": {
+                    "type": "object",
+                    "properties": {"state": {"type": "string", "enum": ["on", "off"]}},
+                    "required": ["state"],
+                }
+            }
+        },
+    }
+    openapi_file = tmp_path / "openapi.json"
+    openapi_file.write_text(json.dumps(openapi))
+    output = tmp_path / "models.py"
+
+    # ACT
+    from api_client_generator.generate_types_from_swagger import generate_types_from_swagger
+
+    generate_types_from_swagger(openapi_file, output, ModelOptions(model_type="dataclass", enum_as_literal=True))
+
+    # ASSERT
+    source = output.read_text()
+    assert "Literal['on', 'off']" in source or 'Literal["on", "off"]' in source
+    assert "Enum" not in source
+
+
+def test_literal_annotations_of_array_params() -> None:
+    # ARRANGE
+    from typing import Literal
+
+    from api_client_generator._private.common.array_handle import format_annotation, uses_literal
+
+    annotation = list[list[str | Literal["incoming", "outgoing"]]]
+
+    # ACT & ASSERT
+    assert format_annotation(annotation) == "list[list[str | Literal['incoming', 'outgoing']]]"
+    assert uses_literal(annotation)
+    assert not uses_literal(list[str])
+
+
+def test_dataclass_fields_keep_original_keys_in_metadata(tmp_path: Path) -> None:
+    # ARRANGE
+    import dataclasses
+    from typing import get_type_hints
+
+    from api_client_generator.generate_types_from_swagger import generate_types_from_swagger
+
+    openapi = {
+        "openapi": "3.1.0",
+        "info": {"title": "test", "version": "1"},
+        "paths": {},
+        "components": {
+            "schemas": {
+                "records": {
+                    "type": "object",
+                    "properties": {
+                        "from": {"type": "string"},
+                        "Block stats": {"type": "integer"},
+                        "last-names": {"type": "array", "items": {"type": "string"}, "default": []},
+                        "limit": {"type": "integer", "default": 5},
+                        "name": {"type": "string"},
+                    },
+                    "required": ["from"],
+                }
+            }
+        },
+    }
+    openapi_file = tmp_path / "openapi.json"
+    openapi_file.write_text(json.dumps(openapi))
+    output = tmp_path / "models.py"
+
+    # ACT
+    generate_types_from_swagger(openapi_file, output, ModelOptions(model_type="dataclass", frozen=True, kw_only=True))
+
+    # ASSERT
+    namespace: dict[str, object] = {}
+    exec(compile(output.read_text(), str(output), "exec"), namespace)  # noqa: S102
+    records = namespace["Records"]
+    assert isinstance(records, type)
+    assert dataclasses.is_dataclass(records)
+    get_type_hints(records, namespace)
+    fields = {field_.name: field_ for field_ in dataclasses.fields(records)}
+    assert {name: dict(field_.metadata) for name, field_ in fields.items()} == {
+        "from_": {"alias": "from"},
+        "Block_stats": {"alias": "Block stats"},
+        "last_names": {"alias": "last-names"},
+        "limit": {},
+        "name": {},
+    }
+    assert fields["from_"].default is dataclasses.MISSING
+    assert fields["Block_stats"].default is None
+    assert fields["last_names"].default_factory() == []  # type: ignore[misc]
+    assert fields["limit"].default == 5  # noqa: PLR2004
+    assert fields["name"].default is None
+
+
+def test_msgspec_models_keep_original_keys_in_field_names(tmp_path: Path) -> None:
+    # ACT
+    source = generate(tmp_path, ModelOptions(model_type="msgspec", kw_only=True), None)
+
+    # ASSERT
+    assert "metadata" not in source
+    assert "from_: str = field(name='from')" in source
