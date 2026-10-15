@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import ast
-from typing import Final
+from typing import Final, Mapping
 
 from api_client_generator._private.common.converters import snake_to_camel
 from api_client_generator._private.common.models_aliased import (
@@ -26,6 +26,7 @@ def create_api_client(  # NOQA: PLR0913
     *,
     asynchronous: bool = True,
     legacy_args_serialization: bool = False,
+    class_attributes: Mapping[str, str] | None = None,
 ) -> ast.ClassDef:
     """
     Creates a client class for the given API name and endpoints.
@@ -38,6 +39,7 @@ def create_api_client(  # NOQA: PLR0913
         endpoint_decorator: The name of the endpoint decorator to be used.
         asynchronous: If True, the endpoints will be created as asynchronous methods.
         legacy_args_serialization: If True, endpoint arguments will be `posonlyargs`.
+        class_attributes: String class attributes added to the generated client class (name -> value).
 
     Raises:
         EndpointParamsIsNotDataclassError: If the endpoint parameters are not a dataclass.
@@ -96,7 +98,12 @@ def create_api_client(  # NOQA: PLR0913
             )
         )
 
-    body: list[ast.stmt] = [endpoint_decorator_assign, *methods]
+    attributes_assign: list[ast.stmt] = [
+        ast.Assign(targets=[ast.Name(id=name)], value=ast.Constant(value=value))
+        for name, value in (class_attributes or {}).items()
+    ]
+
+    body: list[ast.stmt] = [*attributes_assign, endpoint_decorator_assign, *methods]
 
     return ast.ClassDef(
         name=snake_to_camel(api_name),
