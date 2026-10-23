@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import typing as t
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING, Any, Mapping, Sequence
 
-from api_client_generator._private.common.array_handle import is_param_array
+from api_client_generator._private.common.array_handle import is_param_array, uses_literal
 from api_client_generator._private.common.defaults import DEFAULT_ENDPOINT_JSON_RPC_DECORATOR_NAME
 from api_client_generator._private.common.generated_class import GeneratedClass
+from api_client_generator._private.description_source import NamedAnnotation
 from api_client_generator._private.common.models_aliased import (
     BaseApiClass,
     ClientClassFactory,
@@ -17,9 +18,9 @@ from api_client_generator._private.resolve_needed_imports import (
     import_class,
     import_classes,
     import_params_types,
-    is_struct,
 )
-from api_client_generator.exceptions import EndpointParamsIsNotMsgspecStructError
+from api_client_generator.exceptions import EndpointParamsIsNotModelError
+from api_client_generator.model_options import is_model
 
 if TYPE_CHECKING:
     import ast
@@ -61,7 +62,17 @@ def _import_annotation_type(annotation: Any, already_imported: list[str]) -> "as
 
 
 def _collect_generic_type_imports(annotation: Any, already_imported: list[str]) -> list["ast.ImportFrom"]:
+    if isinstance(annotation, NamedAnnotation):  # written by its name - only the name is imported
+        import_stmt = _import_annotation_type(f"{annotation.module}.{annotation.name}", already_imported)
+        return [import_stmt] if import_stmt else []
+
     imports: list["ast.ImportFrom"] = []
+
+    if uses_literal(annotation) and "Literal" not in already_imported:
+        import_stmt = import_class("Literal", "typing")
+        if import_stmt:
+            already_imported.append("Literal")
+            imports.append(import_stmt)
 
     for nested in _iter_annotation_leaf_types(annotation):
         import_stmt = _import_annotation_type(nested, already_imported)
@@ -83,6 +94,7 @@ def create_client_and_imports(  # NOQA: PLR0913
     *,
     asynchronous: bool = True,
     legacy_args_serialization: bool = False,
+    class_attributes: Mapping[str, str] | None = None,
 ) -> GeneratedClass:
     """
     Create a client class and resolve the needed imports.
@@ -98,17 +110,22 @@ def create_client_and_imports(  # NOQA: PLR0913
         already_imported: A list of already imported items.
         asynchronous: If True, the endpoints will be created as asynchronous methods.
         legacy_args_serialization: If True, endpoint arguments will be `posonlyargs`.
+        class_attributes: String class attributes added to the generated client class (name -> value).
 
     Raises:
-        EndpointParamsIsNotDataclassError: If the endpoint parameters are not a dataclass.
+        EndpointParamsIsNotModelError: If the endpoint parameters are not a model (msgspec struct or dataclass).
     """
 
     needed_imports: list[ast.ImportFrom] = []
     if already_imported is None:
         already_imported = []
 
-    needed_results = [ensure_is_importable(params["result"]) for params in endpoints.values() if params.get("result")]
+    results = [params["result"] for params in endpoints.values() if params.get("result")]
+    needed_results = [ensure_is_importable(result) for result in results if isinstance(result, type)]
     needed_results_import = import_classes(needed_results, already_imported)
+    for result in results:  # generic results (unions, lists, Literal) - import their member types
+        if not isinstance(result, type):
+            needed_results_import.extend(_collect_generic_type_imports(result, already_imported))
 
     needed_params_import = []
 
@@ -120,8 +137,8 @@ def create_client_and_imports(  # NOQA: PLR0913
                 needed_params_import.extend(_collect_generic_type_imports(extracted_params, already_imported))
                 continue
 
-            if extracted_params is not None and not is_struct(extracted_params):
-                raise EndpointParamsIsNotMsgspecStructError
+            if extracted_params is not None and not is_model(extracted_params):
+                raise EndpointParamsIsNotModelError
 
             needed_params_import.extend(import_params_types(extracted_params, already_imported))
 
@@ -145,6 +162,7 @@ def create_client_and_imports(  # NOQA: PLR0913
             endpoint_decorator,
             asynchronous=asynchronous,
             legacy_args_serialization=legacy_args_serialization,
+            class_attributes=class_attributes,
         ),
         needed_imports,
     )

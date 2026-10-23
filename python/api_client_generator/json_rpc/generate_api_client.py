@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Sequence
+from typing import Mapping, Sequence
 
 from api_client_generator._private.check_whether_was_ran_as_script import check_whether_was_ran_as_script
 from api_client_generator._private.client_class_factory import create_json_rpc_api_client
 from api_client_generator._private.common.defaults import DEFAULT_ENDPOINT_JSON_RPC_DECORATOR_NAME
 from api_client_generator._private.common.models_aliased import ApiDescription, BaseApiClass, Importable
+from api_client_generator._private.description_source import with_alias_names
 from api_client_generator._private.json_rpc_tools.api_name_tools import get_api_name_from_description
 from api_client_generator._private.export_client_module_to_file import export_module_to_file
 from api_client_generator._private.json_rpc_tools.create_single_client_module import (
@@ -25,6 +26,7 @@ def generate_api_client(  # NOQA: PLR0913
     *,
     asynchronous: bool = True,
     legacy_args_serialization: bool = False,
+    class_attributes: Mapping[str, str] | None = None,
 ) -> None:
     """
     Generate an API client class based on the provided API name, description, and type and save it to a file.
@@ -38,9 +40,13 @@ def generate_api_client(  # NOQA: PLR0913
         additional_items_to_import: Additional items to import in the module.
         asynchronous: If True, the endpoints will be created as asynchronous methods.
         legacy_args_serialization: If True, endpoint arguments will be `posonlyargs`.
+        class_attributes: String class attributes added to the generated client class (name -> value),
+                          e.g. a location of models used for optional response validation.
 
     Notes:
         Your script must be run with the `-m` flag to ensure that the module is executed as a script.
+        Params and results which are aliases (e.g. `X: TypeAlias = list[str]`) are written by their names, when the
+        description is defined in an imported module (aliases do not exist at runtime).
 
     Raises:
         MoreThanOneApiPassedToSingleGeneratorError: If more than one or none API description is provided. If you want to generate a client for multiple APIs,
@@ -78,7 +84,7 @@ def generate_api_client(  # NOQA: PLR0913
         raise InvalidApiDescriptionAmountError
 
     client_module = create_single_client_module(
-        api_description,
+        with_alias_names(api_description),
         create_json_rpc_api_client,
         base_class,
         base_class_source,
@@ -86,6 +92,7 @@ def generate_api_client(  # NOQA: PLR0913
         additional_items_to_import,
         asynchronous=asynchronous,
         legacy_args_serialization=legacy_args_serialization,
+        class_attributes=class_attributes,
     )
 
     api_name = get_api_name_from_description(api_description).replace("-", "_")

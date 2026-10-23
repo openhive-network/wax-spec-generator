@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Mapping
 
 from api_client_generator._private.client_class_factory.common import (
     create_api_client as common_create_api_client,
@@ -24,6 +24,7 @@ def create_api_client(
     *,
     asynchronous: bool = True,
     legacy_args_serialization: bool = False,
+    class_attributes: Mapping[str, str] | None = None,
 ) -> ast.ClassDef:
     """
     Creates a client class for the given API name and endpoints.
@@ -36,14 +37,16 @@ def create_api_client(
         endpoint_decorator: The name of the endpoint decorator to be used.
         asynchronous: If True, the endpoints will be created as asynchronous methods.
         legacy_args_serialization: If True, endpoint arguments will be `posonlyargs`.
+        class_attributes: String class attributes added to the generated client class (name -> value).
     """
 
     return common_create_api_client(
         api_name,
         endpoints,
-        create_json_rpc_endpoint,  # type: ignore[arg-type]
+        create_json_rpc_endpoint,
         base_class,
         endpoint_decorator,
         asynchronous=asynchronous,
         legacy_args_serialization=legacy_args_serialization,
+        class_attributes=class_attributes,
     )
