@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import ast
-from typing import Any
 
-from msgspec import NODEFAULT, Struct
-from msgspec.structs import fields
+from msgspec import NODEFAULT
 
 from api_client_generator._private.common.array_handle import (
     format_annotation,
@@ -16,13 +14,13 @@ from api_client_generator._private.common.models_aliased import Importable
 from api_client_generator._private.endpoints_factory.common import (
     create_endpoint as create_endpoint_common,
 )
-from api_client_generator._private.resolve_needed_imports import is_struct
-from api_client_generator.exceptions import EndpointParamsIsNotMsgspecStructError
+from api_client_generator.exceptions import EndpointParamsIsNotModelError, EndpointParamsWithDefaultFactoryError
+from api_client_generator.model_options import is_model, model_fields
 
 
 def create_endpoint(  # NOQA: PLR0913
     name: str,
-    params: Struct | None = None,
+    params: type[object] | None = None,
     result: Importable | None = None,
     endpoint_decorator: str = DEFAULT_ENDPOINT_JSON_RPC_DECORATOR_NAME,
     description: str | None = None,
@@ -36,7 +34,7 @@ def create_endpoint(  # NOQA: PLR0913
 
     Args:
         name: The name of the endpoint.
-        params: A msgspec struct of parameters.
+        params: A model (msgspec struct or dataclass) of parameters.
         result: The type of the result.
         endpoint_decorator: The decorator for the endpoint.
         description: The description of the endpoint.
@@ -44,14 +42,11 @@ def create_endpoint(  # NOQA: PLR0913
         asynchronous: If True, the endpoint will be created as an asynchronous method.
         legacy_args_serialization: If True, endpoint arguments will be `posonlyargs`.
 
-    Notice:
-        Please note that the `params` argument is expected to be a msgspec struct.
-
     Returns:
         ast.AsyncFunctionDef | ast.FunctionDef: The AST representation of the endpoint method.
 
     Raises:
-        EndpointParamsIsNotMsgspecStructError: If the params is not a msgspec struct.
+        EndpointParamsIsNotModelError: If the params is not a model.
     """
 
     return create_endpoint_common(
@@ -65,19 +60,22 @@ def create_endpoint(  # NOQA: PLR0913
     )
 
 
-def get_endpoint_args(params: Struct | list[Any] | None, *, legacy_args_serialization: bool = False) -> ast.arguments:
+def get_endpoint_args(
+    params: type[object] | list[object] | None, *, legacy_args_serialization: bool = False
+) -> ast.arguments:
     """
     Generate arguments for the json-rpc api endpoint method.
 
     Args:
-        params: The msgspec struct representing the parameters for the API endpoint.
+        params: The model representing the parameters for the API endpoint.
         legacy_args_serialization: If True, endpoint arguments will be `posonlyargs`.
 
     Returns:
         ast.arguments: The arguments for the API endpoint method.
 
     Raises:
-        EndpointParamsIsNotMsgspecStructError: If the params is not a msgspec struct.
+        EndpointParamsIsNotModelError: If the params is not a model.
+        EndpointParamsWithDefaultFactoryError: If a field of the params has a default created by a factory.
     """
 
     arguments = ast.arguments(
@@ -105,10 +103,12 @@ def get_endpoint_args(params: Struct | list[Any] | None, *, legacy_args_serializ
         arguments.posonlyargs = endpoints_args
         return arguments
 
-    if not is_struct(params):
-        raise EndpointParamsIsNotMsgspecStructError
+    if not is_model(params):
+        raise EndpointParamsIsNotModelError
 
-    for param in fields(params):
+    for param in model_fields(params):
+        if param.default_factory is not None:
+            raise EndpointParamsWithDefaultFactoryError(params.__name__, param.name)
         if param.default is not NODEFAULT:
             defaults.append(ast.Constant(value=param.default))
         else:
