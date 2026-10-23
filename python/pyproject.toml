@@ -22,7 +22,7 @@ poetry-dynamic-versioning = { version = "1.9.1", extras = ["plugin"] }
 python = ">=3.14,<4"
 msgspec = "^0.20.0"
 datamodel-code-generator = "^0.52.2"
-ruff = "^0.11.5"
+ruff = ">=0.6.5"  # only formats generated code - projects using the generator keep their own version
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.5"
