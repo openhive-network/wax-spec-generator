@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Collection
+    from pathlib import Path
+
 
 class ApiClientGeneratorError(Exception):
     """Base class for all exceptions raised by the ApiClientGenerator."""
@@ -31,12 +37,25 @@ class RunningScriptWithoutAppropriateFlagError(ApiClientGeneratorError):
         super().__init__(self.message)
 
 
-class EndpointParamsIsNotMsgspecStructError(ApiClientGeneratorError):
-    """Exception raised when the endpoint parameters are not a msgspec struct."""
+class EndpointParamsIsNotModelError(ApiClientGeneratorError):
+    """Exception raised when the endpoint parameters are not a model (msgspec struct or dataclass)."""
 
     def __init__(self, endpoint_name: str = "any") -> None:
-        self.message = f"Params for {endpoint_name} endpoint must be a msgspec struct"
+        self.message = f"Params for {endpoint_name} endpoint must be a msgspec struct or a dataclass"
         self.endpoint_name = endpoint_name
+        super().__init__(self.message)
+
+
+class EndpointParamsWithDefaultFactoryError(ApiClientGeneratorError):
+    """Exception raised when a field of endpoint parameters has a default created by a factory (e.g. `[]`)."""
+
+    def __init__(self, params_name: str, field_name: str) -> None:
+        self.message = (
+            f"{params_name}.{field_name}: defaults created by a factory (e.g. mutable `[]`) cannot be defaults of"
+            " arguments of endpoints."
+        )
+        self.params_name = params_name
+        self.field_name = field_name
         super().__init__(self.message)
 
 
@@ -54,4 +73,31 @@ class UnsupportedHttpMethodError(ApiClientGeneratorError):
     def __init__(self, method: str) -> None:
         self.message = f"Unsupported HTTP method: {method}."
         self.method = method
+        super().__init__(self.message)
+
+
+class UnknownCustomTypeError(ApiClientGeneratorError):
+    """Exception raised when the OpenAPI definition references a custom type which was not provided."""
+
+    def __init__(self, name: str, available: tuple[str, ...]) -> None:
+        self.message = f"Unknown custom type `{name}`. Available: {', '.join(sorted(available))}."
+        self.name = name
+        super().__init__(self.message)
+
+
+class UndefinedModelError(ApiClientGeneratorError):
+    """Exception raised when generated code refers to models which are not defined."""
+
+    def __init__(self, module: Path, names: Collection[str]) -> None:
+        self.message = f"{module}: referenced, but not defined: {', '.join(sorted(names))}."
+        self.module = module
+        self.names = tuple(sorted(names))
+        super().__init__(self.message)
+
+
+class OpenApiFlatteningError(ApiClientGeneratorError):
+    """Exception raised when an OpenAPI definition cannot be flattened (e.g. circular or external references)."""
+
+    def __init__(self, message: str) -> None:
+        self.message = message
         super().__init__(self.message)

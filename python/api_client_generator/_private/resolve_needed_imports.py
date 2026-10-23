@@ -5,33 +5,16 @@ import types
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Union, get_args, get_origin, get_type_hints
 
-from msgspec import Struct
-
 from api_client_generator._private.common.defaults import DEFAULT_IMPORT_LEVEL
 from api_client_generator._private.common.models_aliased import Importable
 from api_client_generator.exceptions import (
     ClassPassedByStrWithoutSourceError,
-    EndpointParamsIsNotMsgspecStructError,
+    EndpointParamsIsNotModelError,
 )
+from api_client_generator.model_options import is_model
 
 if TYPE_CHECKING:
     from pathlib import Path
-
-
-def is_struct(potential_struct: Any) -> bool:
-    """
-    Check if the given parameter is a msgspec struct.
-
-    Args:
-        potential_struct: The parameter to check.
-    Returns:
-        bool: True if the class is a msgspec struct, False otherwise.
-    """
-    try:
-        return issubclass(potential_struct, Struct)
-    except TypeError:
-        # potential_struct is not a class (e.g., it's a TypeAlias)
-        return False
 
 
 def import_class(
@@ -113,12 +96,12 @@ def import_classes(
     return classes_imports
 
 
-def import_params_types(params: type[Struct] | None, already_imported: list[str]) -> list[ast.ImportFrom]:
+def import_params_types(params: type[object] | None, already_imported: list[str]) -> list[ast.ImportFrom]:
     """
     Import parameters types from the given dataclass of parameters.
 
     Args:
-        params: A msgspec struct with parameters to import.
+        params: A model (msgspec struct or dataclass) with parameters to import.
         already_imported: A list of already imported types.
 
     Notes:
@@ -127,7 +110,7 @@ def import_params_types(params: type[Struct] | None, already_imported: list[str]
         - Union types (X | Y or Union[X, Y]) are unpacked and each component is imported.
 
     Raises:
-        EndpointParamsIsNotDataclassError: If params is not a dataclass.
+        EndpointParamsIsNotModelError: If params is not a model (msgspec struct or dataclass).
     """
     needed_imports: list[ast.ImportFrom] = []
 
@@ -141,8 +124,8 @@ def import_params_types(params: type[Struct] | None, already_imported: list[str]
     if not params:
         return []
 
-    if params is not None and not is_struct(params):
-        raise EndpointParamsIsNotMsgspecStructError
+    if params is not None and not is_model(params):
+        raise EndpointParamsIsNotModelError
 
     for type_ in get_type_hints(params).values():
         # Extract importable types from the type hint (handles unions, generics, etc.)
