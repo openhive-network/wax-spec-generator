@@ -4,11 +4,16 @@ import types
 import typing as t
 from typing import Any, Final
 
+from api_client_generator._private.description_source import NamedAnnotation
+
 LIST_CLASS_NAME: Final[str] = "<class 'list'>"
 
 
 def is_param_array(param: Any) -> bool:
     """Return True when parameter annotation represents a list."""
+
+    if isinstance(param, NamedAnnotation):
+        return is_param_array(param.value)
 
     origin = t.get_origin(param)
     if origin is not None:
@@ -29,6 +34,9 @@ def is_param_array(param: Any) -> bool:
 
 def get_array_ready_for_annotation(param: Any) -> str:
     """Return a string representation suitable for annotating list parameters."""
+
+    if isinstance(param, NamedAnnotation):
+        return param.name
 
     if isinstance(param, str):
         stripped = param.strip()
@@ -52,6 +60,9 @@ def get_array_ready_for_annotation(param: Any) -> str:
 
 
 def format_annotation(annotation: Any) -> str:
+    if isinstance(annotation, NamedAnnotation):
+        return annotation.name
+
     origin = t.get_origin(annotation)
 
     if origin is None:
@@ -68,6 +79,9 @@ def format_annotation(annotation: Any) -> str:
         return str(annotation).split(".")[-1]
 
     args = t.get_args(annotation)
+
+    if origin is t.Literal:
+        return f"Literal[{', '.join(repr(arg) for arg in args)}]"
 
     if origin is list:
         return f"list[{_format_collection_args(args)}]"
@@ -100,3 +114,10 @@ def _format_collection_args(args: tuple[Any, ...]) -> str:
         return format_annotation(args[0])
 
     return " | ".join(format_annotation(arg) for arg in args)
+
+
+def uses_literal(annotation: object) -> bool:
+    """Return True when the annotation contains `Literal[...]` (it has to be imported from typing)."""
+    if t.get_origin(annotation) is t.Literal:
+        return True
+    return any(uses_literal(arg) for arg in t.get_args(annotation))

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+from collections.abc import Mapping
 from typing import Final
 
 from api_client_generator._private.common.array_handle import is_param_array
@@ -10,8 +11,8 @@ from api_client_generator._private.common.models_aliased import (
     EndpointsDescription,
     EndpointsFactory,
 )
-from api_client_generator._private.resolve_needed_imports import is_struct
-from api_client_generator.exceptions import EndpointParamsIsNotMsgspecStructError
+from api_client_generator.exceptions import EndpointParamsIsNotModelError
+from api_client_generator.model_options import is_model
 
 ARGUMENTS_LEGACY_SERIALIZATION_POSONLY_CODE: Final[int] = 1
 
@@ -25,6 +26,7 @@ def create_api_client(
     *,
     asynchronous: bool = True,
     legacy_args_serialization: bool = False,
+    class_attributes: Mapping[str, str] | None = None,
 ) -> ast.ClassDef:
     """
     Creates a client class for the given API name and endpoints.
@@ -37,17 +39,18 @@ def create_api_client(
         endpoint_decorator: The name of the endpoint decorator to be used.
         asynchronous: If True, the endpoints will be created as asynchronous methods.
         legacy_args_serialization: If True, endpoint arguments will be `posonlyargs`.
+        class_attributes: String class attributes added to the generated client class (name -> value).
 
     Raises:
-        EndpointParamsIsNotDataclassError: If the endpoint parameters are not a dataclass.
+        EndpointParamsIsNotModelError: If the endpoint parameters are not a model (msgspec struct or dataclass).
     """
     methods = []
 
     for endpoint_name, endpoint_parameters in endpoints.items():
         params = endpoint_parameters.get("params", None)
 
-        if params is not None and not (is_struct(params) or is_param_array(params)):
-            raise EndpointParamsIsNotMsgspecStructError(endpoint_name)
+        if params is not None and not (is_model(params) or is_param_array(params)):
+            raise EndpointParamsIsNotModelError(endpoint_name)
 
         result = endpoint_parameters.get("result", None)
         description = endpoint_parameters.get("description", None)
@@ -95,7 +98,13 @@ def create_api_client(
             )
         )
 
-    body: list[ast.stmt] = [endpoint_decorator_assign, *methods]
+    attributes_assign: list[ast.stmt] = [
+        ast.Assign(targets=[ast.Name(id=name)], value=ast.Constant(value=value))
+        for name, value in (class_attributes or {}).items()
+    ]
+
+    docstring = ast.Expr(value=ast.Constant(value=f"Client of the `{api_name}` API."))
+    body: list[ast.stmt] = [docstring, *attributes_assign, endpoint_decorator_assign, *methods]
 
     return ast.ClassDef(
         name=snake_to_camel(api_name),
