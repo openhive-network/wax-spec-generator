@@ -7,7 +7,8 @@ import tempfile
 from pathlib import Path
 from typing import Any, Final
 
-from datamodel_code_generator import DataModelType, InputFileType, PythonVersion, generate
+from datamodel_code_generator import InputFileType, PythonVersion, generate
+from datamodel_code_generator.enums import DataModelType
 
 from api_client_generator._private.common.converters import camel_to_snake
 from api_client_generator._private.resolve_needed_imports import (
@@ -248,7 +249,7 @@ def fix_forward_references(output: Path) -> None:
             insert_index = 0
             in_import_section = False
             for i, line in enumerate(fixed_lines):
-                if line.startswith("from ") or line.startswith("import "):
+                if line.startswith(("from ", "import ")):
                     in_import_section = True
                     insert_index = i + 1
                 elif in_import_section and line.strip() == "":

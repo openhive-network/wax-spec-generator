@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from api_client_generator._private.check_whether_was_ran_as_script import check_whether_was_ran_as_script
 from api_client_generator._private.client_class_factory import create_json_rpc_api_client
@@ -16,7 +17,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-def generate_api_collection(  # NOQA: PLR0913
+def generate_api_collection(
     api_descriptions: ApiDescription,
     base_class: type[BaseApiClass] | str,
     base_class_source: str | None = None,

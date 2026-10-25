@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import ast
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from api_client_generator._private.common.converters import snake_to_camel
 from api_client_generator._private.common.defaults import (
@@ -23,7 +23,7 @@ from api_client_generator._private.resolve_needed_imports import (
 from api_client_generator._private.rest_api_tools.models_aliased import CreatedEndpoints
 
 
-def create_client_and_imports(  # NOQA: PLR0913
+def create_client_and_imports(
     api_name: str,
     server_url: str,
     endpoints: CreatedEndpoints,
@@ -89,7 +89,7 @@ def create_client_and_imports(  # NOQA: PLR0913
             attr=f"{endpoint_decorator}()",  # rest decorator is a class method of the base class
         ),
     )
-    base_url_method = ast.FunctionDef(  # type: ignore[call-overload]
+    base_url_method = ast.FunctionDef(
         name="base_path",
         args=ast.arguments(
             posonlyargs=[],

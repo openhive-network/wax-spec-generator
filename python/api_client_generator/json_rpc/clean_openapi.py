@@ -4,7 +4,6 @@ import re
 from pathlib import Path
 from typing import Final
 
-
 STRUCT_CLASS_REGEX: Final[str] = r"class\s+([A-Za-z0-9_]+)\(Struct\):((?:\n(?:    .*)*)*)"
 ALIAS_REGEX: Final[str] = r"^([A-Za-z0-9_]+)(?::\s*TypeAlias)?\s*=\s*([^\n]+)"
 MULTILINE_ALIAS_REGEX: Final[str] = r"^([A-Za-z0-9_]+)(?::\s*TypeAlias)?\s*=\s*\(\n((?:.*\n)*?\))"
@@ -63,20 +62,21 @@ def remove_multiline_typelines(content: str, unused_aliases: set[str]) -> str:
             is_bracket = False
             is_paren = False
             for alias in unused_aliases:
-                if (
-                    stripped.startswith(f"{alias} = list[")
-                    or stripped.startswith(f"{alias} = Optional[")
-                    or stripped.startswith(f"{alias}: TypeAlias = list[")
-                    or stripped.startswith(f"{alias}: TypeAlias = Optional[")
+                if stripped.startswith(
+                    (
+                        f"{alias} = list[",
+                        f"{alias} = Optional[",
+                        f"{alias}: TypeAlias = list[",
+                        f"{alias}: TypeAlias = Optional[",
+                    )
                 ):
                     is_bracket = True
                     break
-                if stripped.startswith(f"{alias} = (") or stripped.startswith(f"{alias}: TypeAlias = ("):
+                if stripped.startswith((f"{alias} = (", f"{alias}: TypeAlias = (")):
                     is_paren = True
                     break
-            if not is_bracket and not is_paren:
-                if stripped.startswith("list[") or stripped.startswith("Optional["):
-                    is_bracket = True
+            if not is_bracket and not is_paren and stripped.startswith(("list[", "Optional[")):
+                is_bracket = True
             if is_bracket or is_paren:
                 skip = True
                 skip_terminator = ")" if is_paren else "]"
@@ -99,7 +99,7 @@ def clean_file(path: Path, roots: set[str]) -> None:
     dependency_map = parse_models_and_aliases(content)
     used = collect_used(dependency_map, roots)
 
-    for name in dependency_map.keys():
+    for name in dependency_map:
         if name not in used:
             class_pattern = re.compile(
                 rf"^class {re.escape(name)}\(Struct\):(?:\n(?:(?:    .*)|\s*\"\"\".*\"\"\"))*", re.MULTILINE
@@ -116,7 +116,7 @@ def clean_file(path: Path, roots: set[str]) -> None:
             alias_pattern = re.compile(rf"^\s*{re.escape(name)}(?::\s*TypeAlias)?\s*=\s*[^\n]+\n?", re.MULTILINE)
             content = alias_pattern.sub("", content)
 
-    unused_aliases = {name for name in dependency_map.keys() if name not in used}
+    unused_aliases = {name for name in dependency_map if name not in used}
     content = remove_multiline_typelines(content, unused_aliases)
 
     content = re.sub(r"^\s*list\[.*\]\s*$", "", content, flags=re.MULTILINE)

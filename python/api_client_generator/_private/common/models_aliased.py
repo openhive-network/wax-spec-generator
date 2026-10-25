@@ -27,7 +27,7 @@ class Importable(Protocol):
 
 
 class EndpointsFactory(Protocol):
-    def __call__(  # NOQA: PLR0913
+    def __call__(
         self,
         name: str,
         params: Struct | None,

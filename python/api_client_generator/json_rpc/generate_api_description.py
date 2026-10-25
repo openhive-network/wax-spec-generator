@@ -28,8 +28,8 @@ api_description = {
 from __future__ import annotations
 
 import json
+from collections.abc import Container
 from pathlib import Path
-from typing import Container
 
 from api_client_generator._private.common.converters import snake_to_camel
 from api_client_generator._private.common.models_aliased import (
@@ -40,17 +40,17 @@ from api_client_generator._private.description_tools import (
     AliasToAssign,
     create_api_description_module,
     get_description_for_endpoint,
+    get_last_part_of_ref,
     get_params_name_for_endpoint,
     get_result_name_for_endpoint,
     is_result_array,
-    get_last_part_of_ref,
 )
 from api_client_generator._private.export_client_module_to_file import export_module_to_file
 from api_client_generator.generate_types_from_swagger import (
-    generate_types_from_swagger,
-    generate_missing_types,
-    fix_malformed_typealias,
     fix_forward_references,
+    fix_malformed_typealias,
+    generate_missing_types,
+    generate_types_from_swagger,
 )
 from api_client_generator.json_rpc.clean_openapi import clean_file
 
