@@ -330,3 +330,11 @@ dist
 generated
 tsconfig.tsbuildinfo
 test-api
+
+# AIDEV test results and the files python/tests generate when they run
+test-results/
+python/tests/manual_definition/generated_*.py
+python/tests/swagger/json_rpc/api_description.py
+python/tests/swagger/json_rpc/generated_*.py
+python/tests/swagger/rest/generated_async/
+python/tests/swagger/rest/generated_sync/
