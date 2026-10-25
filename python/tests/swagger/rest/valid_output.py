@@ -2,7 +2,7 @@ from __future__ import annotations
 
 
 def get_valid_params_for_sync_balances_endpoint() -> dict[str, type]:
-    from .generated_sync.test_api import SortDirection  # type: ignore[import-untyped]
+    from .generated_sync.test_api import SortDirection
 
     return {
         "test_name": str,
@@ -12,7 +12,7 @@ def get_valid_params_for_sync_balances_endpoint() -> dict[str, type]:
 
 
 def get_valid_params_for_async_balances_endpoint() -> dict[str, type]:
-    from .generated_async.test_api import SortDirection  # type: ignore[import-untyped]
+    from .generated_async.test_api import SortDirection
 
     return {
         "test_name": str,

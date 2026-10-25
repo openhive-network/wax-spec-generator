@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import ast
-from typing import Iterable
+from collections.abc import Iterable
 
 from api_client_generator._private.common.converters import camel_to_snake
 

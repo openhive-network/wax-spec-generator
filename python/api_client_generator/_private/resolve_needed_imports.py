@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import ast
 import types
-from typing import TYPE_CHECKING, Any, Sequence, Union, get_args, get_origin, get_type_hints
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, Union, get_args, get_origin, get_type_hints
 
 from msgspec import Struct
 
@@ -188,7 +189,7 @@ def _get_importable_types(type_: Any) -> list[Importable]:
     Handles union types by extracting their component types.
     Returns an empty list for types that don't need importing (builtins, None, etc.).
     """
-    if type_ is type(None):  # noqa: E721
+    if type_ is type(None):
         return []
 
     if _is_union_type(type_):

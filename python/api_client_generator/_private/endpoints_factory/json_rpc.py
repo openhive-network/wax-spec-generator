@@ -8,8 +8,8 @@ from msgspec.structs import fields
 
 from api_client_generator._private.common.array_handle import (
     format_annotation,
-    is_param_array,
     get_array_ready_for_annotation,
+    is_param_array,
 )
 from api_client_generator._private.common.defaults import DEFAULT_ENDPOINT_JSON_RPC_DECORATOR_NAME
 from api_client_generator._private.common.models_aliased import Importable
@@ -20,7 +20,7 @@ from api_client_generator._private.resolve_needed_imports import is_struct
 from api_client_generator.exceptions import EndpointParamsIsNotMsgspecStructError
 
 
-def create_endpoint(  # NOQA: PLR0913
+def create_endpoint(
     name: str,
     params: Struct | None = None,
     result: Importable | None = None,

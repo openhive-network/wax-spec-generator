@@ -4,7 +4,6 @@ import types
 import typing as t
 from typing import Any, Final
 
-
 LIST_CLASS_NAME: Final[str] = "<class 'list'>"
 
 
@@ -64,7 +63,7 @@ def format_annotation(annotation: Any) -> str:
 
         name = getattr(annotation, "__name__", None) or getattr(annotation, "_name", None)
         if name:
-            return name
+            return str(name)
 
         return str(annotation).split(".")[-1]
 

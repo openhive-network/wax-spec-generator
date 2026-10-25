@@ -3,21 +3,20 @@ from __future__ import annotations
 import ast
 from typing import Final
 
+from api_client_generator._private.common.array_handle import is_param_array
 from api_client_generator._private.common.converters import snake_to_camel
 from api_client_generator._private.common.models_aliased import (
     BaseApiClass,
     EndpointsDescription,
     EndpointsFactory,
 )
-from api_client_generator._private.common.array_handle import is_param_array
 from api_client_generator._private.resolve_needed_imports import is_struct
 from api_client_generator.exceptions import EndpointParamsIsNotMsgspecStructError
-
 
 ARGUMENTS_LEGACY_SERIALIZATION_POSONLY_CODE: Final[int] = 1
 
 
-def create_api_client(  # NOQA: PLR0913
+def create_api_client(
     api_name: str,
     endpoints: EndpointsDescription,
     endpoint_factory: EndpointsFactory,
@@ -79,7 +78,7 @@ def create_api_client(  # NOQA: PLR0913
 
     if legacy_args_serialization:
         methods.append(
-            ast.FunctionDef(  # type: ignore[call-overload]
+            ast.FunctionDef(
                 name="argument_serialization",
                 args=ast.arguments(
                     posonlyargs=[],
