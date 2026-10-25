@@ -18,7 +18,7 @@ def _format_generic_list(result_type: Importable) -> str:
     return "list"
 
 
-def create_endpoint(  # NOQA: PLR0913
+def create_endpoint(
     name: str,
     endpoint_arguments: ast.arguments,
     endpoint_decorator: str,
@@ -73,7 +73,7 @@ def create_endpoint(  # NOQA: PLR0913
     else:
         returns = None
 
-    function_def: type[ast.FunctionDef] | type[ast.AsyncFunctionDef] = (
+    function_def: type[ast.FunctionDef | ast.AsyncFunctionDef] = (
         ast.AsyncFunctionDef if asynchronous else ast.FunctionDef
     )
 

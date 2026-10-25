@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import ast
-from typing import Sequence
+from collections.abc import Sequence
 
 from api_client_generator._private.common.defaults import DEFAULT_ENDPOINT_JSON_RPC_DECORATOR_NAME
 from api_client_generator._private.common.models_aliased import (
@@ -18,7 +18,7 @@ from api_client_generator._private.json_rpc_tools.create_client_and_imports impo
 )
 
 
-def create_single_client_module(  # NOQA: PLR0913
+def create_single_client_module(
     api_description: ApiDescription,
     client_class_factory: ClientClassFactory,
     base_class: type[BaseApiClass] | str,

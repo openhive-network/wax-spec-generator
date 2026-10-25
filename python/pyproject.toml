@@ -22,14 +22,14 @@ poetry-dynamic-versioning = { version = "1.9.1", extras = ["plugin"] }
 python = ">=3.14,<4"
 msgspec = "^0.20.0"
 datamodel-code-generator = "^0.52.2"
-ruff = "^0.11.5"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.3.5"
-pytest-asyncio = "^0.25.3"
+pytest = "^9.1.1"
+pytest-asyncio = "^1.4.1"
+ruff = "^0.17.2"
 
 [tool.poetry.group.static-analysis.dependencies]
-mypy = "^1.11.2"
+mypy = "^2.4.0"
 pre-commit = "^2.21.0"
 
 [tool.poetry-dynamic-versioning]
@@ -94,6 +94,22 @@ files = [
 
 [tool.mypy]
 strict = true
+
+# Written by tests/generate_clients_and_collections.py when the tests run: absent before, and not ours to type-check after.
+[[tool.mypy.overrides]]
+module = [
+    "tests.manual_definition.generated_async_api_collection",
+    "tests.manual_definition.generated_async_single_api",
+    "tests.manual_definition.generated_sync_api_collection",
+    "tests.manual_definition.generated_sync_single_api",
+    "tests.swagger.json_rpc.api_description",
+    "tests.swagger.json_rpc.generated_async_api",
+    "tests.swagger.json_rpc.generated_sync_api",
+    "tests.swagger.rest.generated_async.*",
+    "tests.swagger.rest.generated_sync.*",
+]
+ignore_missing_imports = true
+follow_imports = "skip"
 
 [tool.ruff]
 line-length = 120

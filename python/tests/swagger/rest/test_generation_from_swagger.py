@@ -32,11 +32,11 @@ def test_is_api_package_created(api_type: str) -> None:
 def test_endpoint_methods_created(api_type: str) -> None:
     # ARRANGE
     if api_type == "async":
-        from tests.swagger.rest.generated_async.test_api_client import (  # type: ignore[import-untyped]
+        from tests.swagger.rest.generated_async.test_api_client import (
             TestApi,
         )
     else:
-        from tests.swagger.rest.generated_sync.test_api_client import (  # type: ignore[import-untyped]
+        from tests.swagger.rest.generated_sync.test_api_client import (
             TestApi,
         )
 

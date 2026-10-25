@@ -1,21 +1,21 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from api_client_generator._private.check_whether_was_ran_as_script import check_whether_was_ran_as_script
 from api_client_generator._private.client_class_factory import create_json_rpc_api_client
 from api_client_generator._private.common.defaults import DEFAULT_ENDPOINT_JSON_RPC_DECORATOR_NAME
 from api_client_generator._private.common.models_aliased import ApiDescription, BaseApiClass, Importable
-from api_client_generator._private.json_rpc_tools.api_name_tools import get_api_name_from_description
 from api_client_generator._private.export_client_module_to_file import export_module_to_file
+from api_client_generator._private.json_rpc_tools.api_name_tools import get_api_name_from_description
 from api_client_generator._private.json_rpc_tools.create_single_client_module import (
     create_single_client_module,
 )
 from api_client_generator.exceptions import InvalidApiDescriptionAmountError
 
 
-def generate_api_client(  # NOQA: PLR0913
+def generate_api_client(
     api_description: ApiDescription,
     base_class: type[BaseApiClass] | str,
     base_class_source: str | None = None,

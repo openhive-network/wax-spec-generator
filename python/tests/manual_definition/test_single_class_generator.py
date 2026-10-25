@@ -29,12 +29,12 @@ def test_is_api_file_created(api_type: str) -> None:
 def test_endpoint_methods_created(api_type: str) -> None:
     # ARRANGE
     if api_type == "async":
-        from tests.manual_definition.generated_async_single_api import (  # type: ignore[import-untyped]
+        from tests.manual_definition.generated_async_single_api import (
             TestApi,
         )
 
     else:
-        from tests.manual_definition.generated_sync_single_api import (  # type: ignore[import-untyped]
+        from tests.manual_definition.generated_sync_single_api import (
             TestApi,
         )
 
@@ -52,9 +52,9 @@ def test_endpoint_methods_created(api_type: str) -> None:
 def test_api_methods_signature(api_type: str) -> None:
     # ARRANGE & ACT
     if api_type == "async":
-        from tests.manual_definition.generated_async_single_api import TestApi  # type: ignore[import-untyped]
+        from tests.manual_definition.generated_async_single_api import TestApi
     else:
-        from tests.manual_definition.generated_sync_single_api import TestApi  # type: ignore[import-untyped]
+        from tests.manual_definition.generated_sync_single_api import TestApi
 
     test_api_instance = TestApi()
 

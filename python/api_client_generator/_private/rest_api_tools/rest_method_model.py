@@ -9,7 +9,7 @@ class RestApiMethod(Struct):
     tags: list[str]
     summary: str
     description: str
-    operationId: str  # NOQA: N815
+    operationId: str
     responses: Any
     parameters: Any | None = None
     x_response_headers: Any | None = field(name="x-response-headers", default=None)

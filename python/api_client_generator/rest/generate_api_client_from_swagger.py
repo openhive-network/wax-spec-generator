@@ -22,7 +22,7 @@ from api_client_generator._private.rest_api_tools.create_endpoints_for_all_url_p
 from api_client_generator.generate_types_from_swagger import generate_types_from_swagger
 
 
-def generate_api_client_from_swagger(  # NOQA: PLR0913
+def generate_api_client_from_swagger(
     openapi_api_definition: str | Path,
     output_package: str | Path,
     base_class: type[BaseApiClass] | str,

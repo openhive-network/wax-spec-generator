@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from api_client_generator._private.rest_api_tools.rest_method_model import RestApiMethod
 
 
-def create_endpoint(  # NOQA: PLR0913
+def create_endpoint(
     name: str,
     url_path: str,
     method: RestApiMethod | None = None,
@@ -103,7 +103,7 @@ def get_endpoint_args(params: RestApiMethod | None) -> ast.arguments:
                     ),
                 )
             ).__name__
-            if param["schema"].get("type")  # type: ignore[union-attr]
+            if param["schema"].get("type")
             else get_type_from_ref_in_camel(
                 get_value_from_swagger_part_recursively(
                     param,
