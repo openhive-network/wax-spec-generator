@@ -95,7 +95,7 @@ files = [
 [tool.mypy]
 strict = true
 
-# Written by tests/generate_clients_and_collections.py when the tests run, so absent for static analysis.
+# Written by tests/generate_clients_and_collections.py when the tests run: absent before, and not ours to type-check after.
 [[tool.mypy.overrides]]
 module = [
     "tests.manual_definition.generated_async_api_collection",
@@ -109,6 +109,7 @@ module = [
     "tests.swagger.rest.generated_sync.*",
 ]
 ignore_missing_imports = true
+follow_imports = "skip"
 
 [tool.ruff]
 line-length = 120
