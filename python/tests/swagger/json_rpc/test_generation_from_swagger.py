@@ -38,11 +38,11 @@ def test_is_api_file_created(api_type: str) -> None:
 def test_endpoint_methods_created(api_type: str) -> None:
     # ARRANGE
     if api_type == "async":
-        from tests.swagger.json_rpc.generated_async_api import (  # type: ignore[import-untyped]
+        from tests.swagger.json_rpc.generated_async_api import (
             TestApi,
         )
     else:
-        from tests.swagger.json_rpc.generated_sync_api import TestApi  # type: ignore[import-untyped]
+        from tests.swagger.json_rpc.generated_sync_api import TestApi
 
     # ASSERT
     assert hasattr(TestApi, "first_endpoint"), ENDPOINT_NOT_GENERATED_MESSAGE
@@ -56,11 +56,11 @@ def test_endpoint_methods_created(api_type: str) -> None:
 def test_api_methods_signature(api_type: str) -> None:
     # ARRANGE & ACT
     if api_type == "async":
-        from tests.swagger.json_rpc.generated_async_api import (  # type: ignore[import-untyped]
+        from tests.swagger.json_rpc.generated_async_api import (
             TestApi,
         )
     else:
-        from tests.swagger.json_rpc.generated_sync_api import TestApi  # type: ignore[import-untyped]
+        from tests.swagger.json_rpc.generated_sync_api import TestApi
 
     test_api_instance = TestApi()
 

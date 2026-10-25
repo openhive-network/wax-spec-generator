@@ -33,6 +33,7 @@ repos:
         types: [python]
       - id: mypy
         name: type check with mypy
-        entry: mypy
+        entry: mypy --config-file python/pyproject.toml
+        require_serial: true
         language: system
         types: [python]

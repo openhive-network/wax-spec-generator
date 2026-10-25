@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from functools import wraps
-from typing import Any, Awaitable, Callable, Final, Self
+from typing import Any, Final, Self
 
 VALID_RETURN_VALUE: Final[str] = "valid_return_value"
 
@@ -12,7 +13,7 @@ class MockAsyncJsonRpcApiBase:
     @classmethod
     def endpoint_jsonrpc(cls, wrapped_function: Callable[..., Awaitable[str]]) -> Callable[..., Awaitable[str]]:
         @wraps(wrapped_function)
-        async def impl(*args: Any, **kwargs: Any) -> str:  # NOQA: ARG001
+        async def impl(*args: Any, **kwargs: Any) -> str:
             return VALID_RETURN_VALUE
 
         return impl
@@ -24,7 +25,7 @@ class MockSyncJsonRpcApiBase:
     @classmethod
     def endpoint_jsonrpc(cls, wrapped_function: Callable[..., str]) -> Callable[..., str]:
         @wraps(wrapped_function)
-        def impl(*args: Any, **kwargs: Any) -> str:  # NOQA: ARG001
+        def impl(*args: Any, **kwargs: Any) -> str:
             return VALID_RETURN_VALUE
 
         return impl
@@ -38,10 +39,10 @@ class MockAsyncRestApiBase:
         return cls()
 
     @classmethod
-    def get(cls, path: str) -> Callable[[Callable[..., Awaitable[str]]], Callable[..., Awaitable[str]]]:  # NOQA: ARG003
+    def get(cls, path: str) -> Callable[[Callable[..., Awaitable[str]]], Callable[..., Awaitable[str]]]:
         def decorator(func: Callable[..., Awaitable[str]]) -> Callable[..., Awaitable[str]]:
             @wraps(func)
-            async def impl(*args: Any, **kwargs: Any) -> str:  # NOQA: ARG001
+            async def impl(*args: Any, **kwargs: Any) -> str:
                 return VALID_RETURN_VALUE
 
             return impl
@@ -57,10 +58,10 @@ class MockSyncRestApiBase:
         return cls()
 
     @classmethod
-    def get(cls, path: str) -> Callable[[Callable[..., str]], Callable[..., str]]:  # NOQA: ARG003
+    def get(cls, path: str) -> Callable[[Callable[..., str]], Callable[..., str]]:
         def decorator(func: Callable[..., str]) -> Callable[..., str]:
             @wraps(func)
-            def impl(*args: Any, **kwargs: Any) -> str:  # NOQA: ARG001
+            def impl(*args: Any, **kwargs: Any) -> str:
                 return VALID_RETURN_VALUE
 
             return impl

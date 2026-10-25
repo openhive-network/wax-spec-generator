@@ -44,7 +44,7 @@ def generate_api_description_from_swagger() -> None:
 
 
 def generate_clients_and_collections() -> None:
-    from .swagger.json_rpc.api_description import test_api_description  # type: ignore[import-untyped]
+    from .swagger.json_rpc.api_description import test_api_description
 
     generate_api_client_from_swagger(
         OPENAPI_REST_DEFINITION_DESTINATION,

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import typing as t
-from typing import TYPE_CHECKING, Any, Sequence
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any
 
 from api_client_generator._private.common.array_handle import is_param_array
 from api_client_generator._private.common.defaults import DEFAULT_ENDPOINT_JSON_RPC_DECORATOR_NAME
@@ -36,7 +37,7 @@ def _iter_annotation_leaf_types(annotation: Any) -> t.Iterator[Any]:
         yield from _iter_annotation_leaf_types(arg)
 
 
-def _import_annotation_type(annotation: Any, already_imported: list[str]) -> "ast.ImportFrom" | None:
+def _import_annotation_type(annotation: Any, already_imported: list[str]) -> ast.ImportFrom | None:
     if isinstance(annotation, str):
         module_name, _, class_name = annotation.rpartition(".")
 
@@ -60,8 +61,8 @@ def _import_annotation_type(annotation: Any, already_imported: list[str]) -> "as
     return import_stmt
 
 
-def _collect_generic_type_imports(annotation: Any, already_imported: list[str]) -> list["ast.ImportFrom"]:
-    imports: list["ast.ImportFrom"] = []
+def _collect_generic_type_imports(annotation: Any, already_imported: list[str]) -> list[ast.ImportFrom]:
+    imports: list[ast.ImportFrom] = []
 
     for nested in _iter_annotation_leaf_types(annotation):
         import_stmt = _import_annotation_type(nested, already_imported)
@@ -71,7 +72,7 @@ def _collect_generic_type_imports(annotation: Any, already_imported: list[str]) 
     return imports
 
 
-def create_client_and_imports(  # NOQA: PLR0913
+def create_client_and_imports(
     api_name: str,
     client_class_factory: ClientClassFactory,
     endpoints: EndpointsDescription,

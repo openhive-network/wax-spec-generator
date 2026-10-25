@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import ast
-from typing import Sequence
+from collections.abc import Sequence
 
 from api_client_generator._private.common.defaults import (
     DEFAULT_API_COLLECTION_NAME,
@@ -20,7 +20,7 @@ from api_client_generator._private.json_rpc_tools.create_client_and_imports impo
 )
 
 
-def create_collection_module(  # NOQA: PLR0913
+def create_collection_module(
     api_descriptions: ApiDescription,
     client_class_factory: ClientClassFactory,
     base_class: type[BaseApiClass] | str,

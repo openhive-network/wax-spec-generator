@@ -30,11 +30,11 @@ def test_is_collection_generated(api_type: str) -> None:
 def test_endpoint_methods_created_and_are_callable(api_type: str) -> None:
     # ARRANGE & ACT
     if api_type == "async":
-        from tests.manual_definition.generated_async_api_collection import (  # type: ignore[import-untyped]
+        from tests.manual_definition.generated_async_api_collection import (
             GeneratedAsyncApiCollection as GeneratedCollection,
         )
     else:
-        from tests.manual_definition.generated_sync_api_collection import (  # type: ignore[import-untyped]
+        from tests.manual_definition.generated_sync_api_collection import (
             GeneratedSyncApiCollection as GeneratedCollection,
         )
 
