@@ -61,7 +61,7 @@
     "url": "https://gitlab.syncad.com/hive/wax-spec-generator.git"
   },
   "engines": {
-    "node": ">= 18"
+    "node": ">=24"
   },
   "publishConfig": {
     "registry": "https://RegistryPlaceholder",
