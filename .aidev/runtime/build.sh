@@ -3,9 +3,11 @@
 # and print the digest-pinned reference to put in .aidev/project.yaml's
 # `environment.image`. See .aidev/README.md.
 #
-# The tag is `aidev-<hash>` of the image inputs (the Dockerfile, pnpm-lock.yaml,
-# python/pyproject.toml, python/poetry.lock). When <repository>:aidev-<hash> is
-# already in the registry nothing is built: the script prints its digest.
+# The tag is `aidev-<hash>` of the image inputs (the Dockerfile, the digest the
+# base image's moving common-ci-configuration tag resolves to now, pnpm-lock.yaml,
+# python/pyproject.toml, python/poetry.lock), so a Node bump in ccc yields a new
+# tag. When <repository>:aidev-<hash> is already in the registry nothing is
+# built: the script prints its digest.
 #
 #   .aidev/runtime/build.sh           # registry digest, or build locally and print the local tag
 #   .aidev/runtime/build.sh --push    # registry digest, or build + push and print repo@sha256:<digest>
@@ -13,8 +15,15 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 REPOSITORY="${AIDEV_RUNTIME_REPOSITORY:-registry.gitlab.syncad.com/hive/wax-spec-generator/aidev-tests}"
+manifest_digest() {
+    docker buildx imagetools inspect "$1" --format '{{json .Manifest}}' 2>/dev/null \
+        | grep -o '"digest": *"sha256:[0-9a-f]*"' | head -1 | grep -o 'sha256:[0-9a-f]*' || true
+}
+BASE_IMAGE="$(sed -n 's/^FROM[[:space:]]\{1,\}\([^[:space:]]*\).*/\1/p' .aidev/runtime/Dockerfile | head -1)"
+BASE_DIGEST="$(manifest_digest "$BASE_IMAGE")"
 input_hash() {
-    sha256sum .aidev/runtime/Dockerfile pnpm-lock.yaml python/pyproject.toml python/poetry.lock | sha256sum | cut -c1-16
+    { sha256sum .aidev/runtime/Dockerfile pnpm-lock.yaml python/pyproject.toml python/poetry.lock
+      echo "${BASE_DIGEST:?cannot resolve the digest of $BASE_IMAGE}"; } | sha256sum | cut -c1-16
 }
 TAG="aidev-$(input_hash)"
 case "${1:-}" in
@@ -22,11 +31,7 @@ case "${1:-}" in
     ""|--push) ;;
     *) echo "usage: $0 [--push|--tag]" >&2; exit 2 ;;
 esac
-registry_digest() {
-    docker buildx imagetools inspect "$REPOSITORY:$TAG" --format '{{json .Manifest}}' 2>/dev/null \
-        | grep -o '"digest": *"sha256:[0-9a-f]*"' | head -1 | grep -o 'sha256:[0-9a-f]*' || true
-}
-digest="$(registry_digest)"
+digest="$(manifest_digest "$REPOSITORY:$TAG")"
 if [ -n "$digest" ]; then
     echo "$REPOSITORY:$TAG exists in the registry; not building" >&2
     echo "$REPOSITORY@$digest"
@@ -38,7 +43,7 @@ trap 'rm -rf "$context"' EXIT
 mkdir -p "$context/js" "$context/python"
 cp package.json pnpm-lock.yaml "$context/js/"
 cp python/pyproject.toml python/poetry.lock "$context/python/"
-build=(docker buildx build --pull --provenance=false -f .aidev/runtime/Dockerfile -t "$REPOSITORY:$TAG")
+build=(docker buildx build --pull --provenance=false --build-context "$BASE_IMAGE=docker-image://${BASE_IMAGE%:*}@$BASE_DIGEST" -f .aidev/runtime/Dockerfile -t "$REPOSITORY:$TAG")
 if [ "${1:-}" != "--push" ]; then
     "${build[@]}" --load "$context" >&2
     echo "$REPOSITORY:$TAG"
