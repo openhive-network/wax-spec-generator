@@ -2,8 +2,9 @@
 # .aidev/project.yaml). Suites run with `--network none` and the caller's uid, so
 # everything they need is in the image:
 #
-# * common-ci-configuration's node-test-tools (Ubuntu 26.04, Node v24.21.0, pnpm),
-#   the same tool image CI's npm templates use;
+# * common-ci-configuration's node-test-tools at its moving `develop` tag (Node
+#   and pnpm as ccc pins them), the same tool image CI's npm templates use; this
+#   repo owns no Node version or base digest of its own;
 # * a pnpm store filled from pnpm-lock.yaml (`pnpm fetch`), so `pnpm install
 #   --offline` works in the sandbox;
 # * Python 3 with python/poetry.lock's main, dev and static-analysis groups in
@@ -12,7 +13,7 @@
 #   through a .pth.
 #
 # Build and pin it with .aidev/runtime/build.sh; see .aidev/README.md.
-FROM registry.gitlab.syncad.com/hive/common-ci-configuration/node-test-tools@sha256:e49773279d26e2b546c5e785e656fcec5caa983def88aef5816e2d95ec72ef1a
+FROM registry.gitlab.syncad.com/hive/common-ci-configuration/node-test-tools:develop
 USER root
 ENV HOME=/tmp \
     PATH=/opt/py/bin:$PATH \

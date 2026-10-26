@@ -20,6 +20,10 @@ module.exports = {
     sourceType: "script",
     allowReserved: false,
   },
+  settings: {
+    // Building export maps for dependencies (typescript's is huge) takes over 1.5 GB of heap.
+    "import/ignore": ["node_modules"]
+  },
   rules: {
     // Possible problems
     "no-constructor-return":           1,

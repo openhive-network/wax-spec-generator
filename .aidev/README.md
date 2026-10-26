@@ -34,11 +34,12 @@ Declared in `.aidev/project.yaml` under `verification`:
 
 ## Test runtime
 
-`.aidev/runtime/Dockerfile` builds on common-ci-configuration's `node-test-tools` and adds
-Python 3 with `python/poetry.lock`'s main, dev and static-analysis groups. Rebuild and
-re-pin it with `.aidev/runtime/build.sh --push` when the Dockerfile, `pnpm-lock.yaml`,
-`python/pyproject.toml` or `python/poetry.lock` changes, and put the printed
-`repo@sha256:…` into `environment.image`.
+`.aidev/runtime/Dockerfile` builds on common-ci-configuration's `node-test-tools:develop`
+(so Node is the single version ccc pins; this repo carries none) and adds Python 3 with
+`python/poetry.lock`'s main, dev and static-analysis groups. Rebuild and re-pin it with
+`.aidev/runtime/build.sh --push` when ccc moves Node or the image, or when the Dockerfile,
+`pnpm-lock.yaml`, `python/pyproject.toml` or `python/poetry.lock` changes, and put the
+printed `repo@sha256:…` into `environment.image`.
 
 At onboarding (2026-10-25) the `static` slot's `py-lint` (ruff, 9 findings) and
 `py-types` (mypy, 5 findings) fail on the existing code; `quick`/`full` pass.
