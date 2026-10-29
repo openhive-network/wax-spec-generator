@@ -56,7 +56,11 @@ npx generate-wax-spec -i data/hafbe.json -N hafbe -T rest -e --npm-name "@hiveio
 
 ## Building
 
+Dependency versions shared across Hive apps (TypeScript, husky) come from the pnpm catalogs of [common-ci-configuration](https://gitlab.syncad.com/hive/common-ci-configuration), which `pnpm-workspace.yaml` links to through the `npm-common-config` submodule, so check it out first:
+
 ```bash
+git submodule update --init --remote npm-common-config
+
 pnpm install
 
 pnpm run build
