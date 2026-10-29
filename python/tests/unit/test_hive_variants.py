@@ -3,17 +3,17 @@ from __future__ import annotations
 from api_client_generator import hive_variants
 
 
-def test_variants_map_types_of_hive_to_their_forms_in_schemas() -> None:
+def test_variants_map_types_of_hive_to_their_forms_in_hiveio_api() -> None:
     # ACT
     public = hive_variants.public_custom_types(["AccountName"], {"Hf26Operation": "pkg.operations.Hf26Operation"})
     validation = hive_variants.validation_custom_types(["AccountName"])
 
     # ASSERT
     assert public.types == {
-        "AccountName": "schemas.fields.public.AccountName",
+        "AccountName": "hiveio_api.fields.public.AccountName",
         "Hf26Operation": "pkg.operations.Hf26Operation",
     }
-    assert validation.types == {"AccountName": "schemas.fields.validation.AccountName"}
+    assert validation.types == {"AccountName": "hiveio_api.fields.validation.AccountName"}
     assert (public.skip_in_unions, validation.skip_in_unions) == (False, True)
 
 
