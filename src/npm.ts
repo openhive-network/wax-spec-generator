@@ -14,8 +14,8 @@ export interface INpmPackageConfig {
 }
 
 export const prepareNpmPackage = (config: INpmPackageConfig): void => {
-  const displayName = config.namespace?.length > 0 ? `${config.namespace} API definitions` : config.name;
-  const description = `Wax REST API definitions${(config.namespace?.length > 0 ? " for " : "")}${(config.namespace || "")}`;
+  const displayName = config.namespace ? `${config.namespace} API definitions` : config.name;
+  const description = `Wax REST API definitions${(config.namespace ? " for " : "")}${(config.namespace || "")}`;
   const { name, version } = config;
 
   const packageJson = {

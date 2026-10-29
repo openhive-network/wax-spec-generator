@@ -41,5 +41,9 @@ Declared in `.aidev/project.yaml` under `verification`:
 `pnpm-lock.yaml`, `python/pyproject.toml` or `python/poetry.lock` changes, and put the
 printed `repo@sha256:…` into `environment.image`.
 
+`pnpm-workspace.yaml` is a symlink into the `npm-common-config` submodule (ccc's pnpm
+catalogs), so the suites' offline `pnpm install` needs that submodule checked out in the
+workspace.
+
 At onboarding (2026-10-25) the `static` slot's `py-lint` (ruff, 9 findings) and
 `py-types` (mypy, 5 findings) fail on the existing code; `quick`/`full` pass.

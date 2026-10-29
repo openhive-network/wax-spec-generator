@@ -28,7 +28,7 @@ branches:
 # How this project's suites execute (#13892): one kind, stated once.
 environment:
   kind: "container"
-  image: "registry.gitlab.syncad.com/hive/wax-spec-generator/aidev-tests@sha256:c2936f79518b8810ebbb0ead7ae55c4dcb3b37fa9ee44efe374936fe0a534437"
+  image: "registry.gitlab.syncad.com/hive/wax-spec-generator/aidev-tests@sha256:4f34644762cc55064e60695d09f54b0a594767c5f804878aeda02975ee6037ab"
   inputs: ["pnpm-lock.yaml", "python/poetry.lock"]
 
 issues:
