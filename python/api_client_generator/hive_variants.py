@@ -1,14 +1,15 @@
 """
 Variants of models of Hive APIs - public and validation models generated from the same OpenAPI definition.
 
-- public: dataclasses (`HiveModel` of hiveio_api) with builtin types expressed by aliases of `schemas.fields.public`
+- public: dataclasses (`HiveModel` of hiveio_api) with builtin types expressed by aliases of `hiveio_api.fields.public`
   (e.g. `AccountName = str`) - returned by API calls, never validated,
-- validation: msgspec models (`PreconfiguredBaseModel` of schemas) with validation forms of the types
-  (`schemas.fields.validation`, e.g. `AccountName` validated by msgspec itself) - used only to validate responses.
+- validation: msgspec models (`PreconfiguredBaseModel` of `hiveio_api.validation.model`) with validation forms of the
+  types (`hiveio_api.fields.validation`, e.g. `AccountName` validated by msgspec itself) - used only to validate
+  responses.
 
-Both map the `x-hive-type` annotations and dates (`format: date-time`) of Hive definitions to types of schemas of the
-same name. Types are referred to by import paths, so the generator does not depend on schemas - callers give the names
-of the types (`__all__` of the module of the variant).
+Both map the `x-hive-type` annotations and dates (`format: date-time`) of Hive definitions to the field types of
+hiveio_api of the same name. Types are referred to by import paths, so the generator does not depend on hiveio_api -
+callers give the names of the types (`__all__` of the module of the variant).
 """
 
 from __future__ import annotations
@@ -24,14 +25,14 @@ HIVE_TYPE_EXTENSION: Final[str] = "x-hive-type"
 FORMAT_TYPES: Final[Mapping[str, str]] = {"date-time": "HiveDateTime"}
 
 PUBLIC_BASE_CLASS: Final[str] = "hiveio_api.HiveModel"
-PUBLIC_TYPES_MODULE: Final[str] = "schemas.fields.public"
+PUBLIC_TYPES_MODULE: Final[str] = "hiveio_api.fields.public"
 HIVE_MODEL_METHODS: Final[frozenset[str]] = frozenset(
     {"from_builtins", "parse_raw", "to_builtins", "dict", "json", "copy"}
 )
 """Public methods of `HiveModel` - fields of public models of these names get a trailing underscore."""
 
-VALIDATION_BASE_CLASS: Final[str] = "schemas._preconfigured_base_model.PreconfiguredBaseModel"
-VALIDATION_TYPES_MODULE: Final[str] = "schemas.fields.validation"
+VALIDATION_BASE_CLASS: Final[str] = "hiveio_api.validation.model.PreconfiguredBaseModel"
+VALIDATION_TYPES_MODULE: Final[str] = "hiveio_api.fields.validation"
 VALIDATION_MODEL_OPTIONS: Final[ModelOptions] = ModelOptions(
     model_type="msgspec", base_class=VALIDATION_BASE_CLASS, kw_only=True, enum_as_literal=True
 )
@@ -58,7 +59,7 @@ def public_custom_types(type_names: Iterable[str], types: Mapping[str, str] | No
     Custom types of public models - aliases of builtin types.
 
     Args:
-        type_names: Names of the types of schemas (`schemas.fields.public.__all__`).
+        type_names: Names of the field types (`hiveio_api.fields.public.__all__`).
         types: Further custom types (name -> import path), e.g. models of operations.
     """
     return _custom_types(PUBLIC_TYPES_MODULE, type_names, types)
@@ -71,7 +72,7 @@ def validation_custom_types(type_names: Iterable[str], types: Mapping[str, str] 
     Members of unions with other types keep their builtin type - msgspec does not support such unions.
 
     Args:
-        type_names: Names of the types of schemas (`schemas.fields.validation.__all__`).
+        type_names: Names of the field types (`hiveio_api.fields.validation.__all__`).
         types: Further custom types (name -> import path), e.g. models of operations.
     """
     return _custom_types(VALIDATION_TYPES_MODULE, type_names, types, skip_in_unions=True)
