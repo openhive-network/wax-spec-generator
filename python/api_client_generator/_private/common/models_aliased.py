@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Protocol, TypeAlias, cast
 
 if TYPE_CHECKING:
     import ast
-    from struct import Struct
 
 AnyJson: TypeAlias = dict[str, "AnyJson"] | list["AnyJson"] | tuple["AnyJson", ...] | str | int | float | bool | None
 SwaggerReadyForExtraction: TypeAlias = dict[str, AnyJson]
@@ -30,7 +30,7 @@ class EndpointsFactory(Protocol):
     def __call__(
         self,
         name: str,
-        params: Struct | None,
+        params: type[object] | None,
         result: Importable | None,
         endpoint_decorator: str,
         description: str | None,
@@ -68,4 +68,5 @@ class ClientClassFactory(Protocol):
         *,
         asynchronous: bool,
         legacy_args_serialization: bool,
+        class_attributes: Mapping[str, str] | None = None,
     ) -> ast.ClassDef: ...

@@ -10,11 +10,13 @@ from api_client_generator._private.common.defaults import (
     DEFAULT_ENDPOINT_JSON_RPC_DECORATOR_NAME,
 )
 from api_client_generator._private.common.models_aliased import ApiDescription, BaseApiClass, Importable
+from api_client_generator._private.description_source import with_alias_names
 from api_client_generator._private.export_client_module_to_file import export_module_to_file
 from api_client_generator._private.json_rpc_tools.create_collection_module import create_collection_module
 
 if TYPE_CHECKING:
     from pathlib import Path
+    from types import ModuleType
 
 
 def generate_api_collection(
@@ -27,6 +29,7 @@ def generate_api_collection(
     additional_items_to_import: Sequence[Importable] | None = None,
     *,
     asynchronous: bool = True,
+    description_module: ModuleType | None = None,
 ) -> None:
     """
     Generate an API client collection based on the provided API names, definition, and type and save it to a file.
@@ -40,9 +43,13 @@ def generate_api_collection(
         endpoint_decorator: Name of the decorator to be used for the endpoint.
         additional_items_to_import: Additional items to import in the module.
         asynchronous: If True, the endpoints will be created as asynchronous methods.
+        description_module: The module defining `api_descriptions`. If None, it is searched among imported modules.
 
     Notes:
         Your script must be run with the `-m` flag to ensure that the module is executed as a script.
+        Params and results which are aliases (e.g. `X: TypeAlias = list[str]`) are written by their names, when the
+        descriptions are defined in a module (`description_module` or an imported one - aliases do not exist at
+        runtime).
 
     Raises:
         InvalidApiNameError: If the API name is invalid.
@@ -51,7 +58,7 @@ def generate_api_collection(
     check_whether_was_ran_as_script()
 
     collection_module = create_collection_module(
-        api_descriptions,
+        with_alias_names(api_descriptions, description_module),
         create_json_rpc_api_client,
         base_class,
         base_class_source,
