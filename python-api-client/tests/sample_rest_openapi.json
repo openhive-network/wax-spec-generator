@@ -1,0 +1,41 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Sample REST API",
+    "description": "REST API of tests of the runtime package",
+    "version": "1.0.0"
+  },
+  "servers": [{"url": "/sample-api"}],
+  "components": {
+    "schemas": {
+      "sample_api.balance": {
+        "type": "object",
+        "properties": {
+          "account_name": {"type": "string"},
+          "amount": {"type": "integer"}
+        },
+        "required": ["account_name", "amount"]
+      }
+    }
+  },
+  "paths": {
+    "/accounts/{account-name}/balance": {
+      "get": {
+        "operationId": "sample_api.get_balance",
+        "tags": ["Accounts"],
+        "summary": "Balance",
+        "description": "Balance of the account",
+        "parameters": [
+          {"in": "path", "name": "account-name", "required": true, "schema": {"type": "string"}},
+          {"in": "query", "name": "coin-type", "required": false, "schema": {"type": "string"}}
+        ],
+        "responses": {
+          "200": {
+            "description": "Balance of the account",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/sample_api.balance"}}}
+          }
+        }
+      }
+    }
+  }
+}
