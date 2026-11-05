@@ -202,7 +202,8 @@
     - pip install "${PYTHON_API_TWINE_REQUIREMENT}"
     - twine --version
     # The GitLab registry does not support `twine upload --skip-existing` (twine 7 refuses the option): a wheel already
-    # in the simple index of the registry is not uploaded, any failure of an upload fails the job.
+    # in the simple index of the registry is not uploaded. A failed upload fails the job unless all its wheels are in
+    # the index afterwards - pipelines of other branches on the same commit build and publish the same files.
     - |
       python3 - <<'EOF'
       import base64
@@ -257,14 +258,22 @@
       wheels = sorted(Path(os.environ["PYTHON_API_DIST_DIR"]).glob("*.whl"))
       if not wheels:
           sys.exit(f"No wheels to publish in {os.environ['PYTHON_API_DIST_DIR']}")
+      def is_published(wheel: Path) -> bool:
+          return wheel.name in published_file_names(wheel.name.split("-", 1)[0])
+
       to_upload = []
       for wheel in wheels:
-          if wheel.name in published_file_names(wheel.name.split("-", 1)[0]):
+          if is_published(wheel):
               print(f"{wheel.name} is already published in {repository_url} - not uploaded")
           else:
-              to_upload.append(str(wheel))
+              to_upload.append(wheel)
       if to_upload:
-          command = ["twine", "upload", "--non-interactive", "--repository-url", repository_url, *to_upload]
+          command = ["twine", "upload", "--non-interactive", "--repository-url", repository_url, *map(str, to_upload)]
           print(" ".join(command), flush=True)
-          sys.exit(subprocess.run(command).returncode)
+          returncode = subprocess.run(command).returncode
+          if returncode != 0 and all(is_published(wheel) for wheel in to_upload):
+              names = ", ".join(wheel.name for wheel in to_upload)
+              print(f"twine upload failed, but {names} is now published in {repository_url} - published concurrently")
+              sys.exit(0)
+          sys.exit(returncode)
       EOF
