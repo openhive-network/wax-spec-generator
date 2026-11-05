@@ -68,6 +68,13 @@ pnpm run build
 
 This shall generate JavaScript files into the `dist` directory
 
+## Python API clients
+
+`python/` holds the Python generator (`hiveio-api-client-generator`) and `python-api-client/` the runtime package of
+generated clients (`hiveio-api-client`, see its [README](python-api-client/README.md)). Apps build their Python client
+package with the CI template [`templates/python_api_package.gitlab-ci.yml`](templates/python_api_package.gitlab-ci.yml)
+(usage in its header) - no pyproject or lockfile of the client in the app.
+
 ## License
 
 See the license in the [LICENSE.md](LICENSE.md) file

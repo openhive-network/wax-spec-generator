@@ -4,9 +4,11 @@
 #   .aidev/run-checks.sh <suite> <step>...
 #
 # Steps: lint (eslint, as CI's lint-ci), build (tsc), py-test (pytest on
-# python/tests, offline code generation), py-lint (ruff), py-types (mypy). Each step
-# is one junit case; py-test also keeps pytest's own junit. Runs offline in the
-# image of .aidev/runtime/Dockerfile.
+# python/tests, offline code generation, and on python-api-client/tests, the runtime
+# package against a local HTTP server), py-lint (ruff), py-types (mypy) - the Python
+# steps cover both python/ and python-api-client/. Each step is one junit case;
+# py-test also keeps pytest's own junit. Runs offline in the image of
+# .aidev/runtime/Dockerfile.
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 root="$PWD"
@@ -41,10 +43,14 @@ step() {
 }
 
 py_tests() {
-    local junit="$out/pytest-junit.xml"
-    cd python || return 1
-    run_with_junit_fallback "$junit" py-test \
-        python3 -m pytest -p no:cacheprovider --junitxml="$junit" tests
+    local junit="$out/pytest-junit.xml" runtime_junit="$out/pytest-runtime-junit.xml" rc=0
+    ( cd python && run_with_junit_fallback "$junit" py-test \
+        python3 -m pytest -p no:cacheprovider --junitxml="$junit" tests ) || rc=$?
+    # The runtime package is not installed in the image: it is imported from the workspace.
+    ( cd python-api-client && PYTHONPATH="$root/python-api-client:$root/python" \
+        run_with_junit_fallback "$runtime_junit" py-runtime-test \
+        python3 -m pytest -p no:cacheprovider --junitxml="$runtime_junit" tests ) || rc=$?
+    return "$rc"
 }
 
 for s in "$@"; do
@@ -52,8 +58,8 @@ for s in "$@"; do
         lint) step lint pnpm exec eslint src --ext .js,.ts --max-warnings=0 --ignore-pattern '*.d.ts' ;;
         build) step build pnpm exec tsc --outDir "$out/dist" ;;
         py-test) step py-test py_tests ;;
-        py-lint) step py-lint bash -c 'cd python && ruff check . && ruff format --check .' ;;
-        py-types) step py-types bash -c 'cd python && mypy api_client_generator' ;;
+        py-lint) step py-lint bash -c 'for d in python python-api-client; do (cd "$d" && ruff check . && ruff format --check .) || exit 1; done' ;;
+        py-types) step py-types bash -c '(cd python && mypy api_client_generator) && (cd python-api-client && mypy hiveio_api_client)' ;;
         *) printf 'case\t%s\tfail\t0\tunknown step\n' "$s" >> "$cases"; status=1 ;;
     esac
 done

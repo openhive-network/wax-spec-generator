@@ -8,6 +8,8 @@ Wax-spec-generator generates typed API clients from OpenAPI/Swagger specificatio
 
 - **TypeScript/Node.js** (root level): Generates `.js` and `.d.ts` files for REST and JSON-RPC APIs
 - **Python** (`python/` directory): Generates Python API client classes for REST and JSON-RPC APIs
+- **Python runtime** (`python-api-client/` directory): `hiveio-api-client` (`hiveio_api_client`), the base classes generated Python clients subclass and a minimal HTTP transport; a separate Poetry project depending only on msgspec
+- **CI template** (`templates/python_api_package.gitlab-ci.yml`): hidden jobs apps extend to generate, build, test and publish their Python client package
 
 ## Commands
 
@@ -33,6 +35,15 @@ poetry run pytest tests/unit/   # Run unit tests only
 poetry run ruff check --fix .   # Lint with auto-fix
 poetry run ruff format .        # Format code
 poetry run mypy .               # Type check
+```
+
+### Python runtime (python-api-client/ directory)
+
+```bash
+cd python-api-client
+poetry install                  # Install dependencies (the generator of ../python is a dev dependency)
+poetry run pytest tests/        # Generates clients of tests/sample_*_openapi.json, calls a local HTTP server
+poetry run mypy hiveio_api_client
 ```
 
 ## Architecture
@@ -65,6 +76,10 @@ Key modules:
 - `_private/json_rpc_tools/`: JSON-RPC specific utilities
 - `_private/rest_api_tools/`: REST API specific utilities
 - `generate_types_from_swagger.py`: Uses `datamodel-code-generator` for Pydantic models
+
+### Python runtime
+
+`python-api-client/hiveio_api_client/` mirrors `hiveio_api.client` of hive/hive (same public names, so hiveio-api can re-export them): `_apis/abc/` (API base classes, `Sendable`), `_communication/` (requests, callbacks, JSON-RPC, URLs, `http_transport.py` on `urllib`), `_remote_handle/` (`SyncRemoteHandle`/`AsyncRemoteHandle`, batches, settings), `_values.py` (`ValueCodec` - the hook libraries like hiveio-api use to convert their own field types), `exceptions.py`. It must not import beekeepy, hiveio_api or schemas (checked by `tests/test_package.py`).
 
 ## CI/CD
 
