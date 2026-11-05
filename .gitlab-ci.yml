@@ -21,6 +21,7 @@ include:
     file:
       - '/templates/npm_projects.gitlab-ci.yml'
       - 'templates/python_projects.gitlab-ci.yml'
+  - local: 'templates/python_api_package.gitlab-ci.yml'
 
 image: "${PYTHON_IMAGE}"
 
@@ -57,6 +58,21 @@ tests:
   script:
     - pytest "${PYPROJECT_DIR}/tests/"
 
+runtime_tests:
+  stage: tests
+  extends: .project_develop_configuration_template
+  before_script:
+    - !reference [.project_develop_configuration_template, before_script]
+    - !reference [.update_deps_for_tests, script]
+  variables:
+    PYPROJECT_DIR: "${CI_PROJECT_DIR}/python-api-client"
+  needs:
+    - job: pre_commit_checks
+  script:
+    - ruff check "${PYPROJECT_DIR}" && ruff format --check "${PYPROJECT_DIR}"
+    - mypy --config-file "${PYPROJECT_DIR}/pyproject.toml" "${PYPROJECT_DIR}/hiveio_api_client"
+    - pytest "${PYPROJECT_DIR}/tests/"
+
 build:
   stage: build
   extends: .npm_build_template
@@ -75,6 +91,62 @@ build_wheel:
     PYPROJECT_DIR: "${CI_PROJECT_DIR}/python"
   needs:
     - job: pre_commit_checks
+
+build_runtime_wheel:
+  stage: build
+  extends:
+    - .build_wheel_template
+  variables:
+    PYPROJECT_DIR: "${CI_PROJECT_DIR}/python-api-client"
+  needs:
+    - job: runtime_tests
+
+# End-to-end test of templates/python_api_package.gitlab-ci.yml - as an app uses it, with the generator and the
+# runtime package of this pipeline (not published yet) and a sample swagger of the generator tests.
+.python_api_package_smoke:
+  variables:
+    PYTHON_API_SWAGGER_JSON: "${CI_PROJECT_DIR}/python/tests/swagger/rest/openapi.json"
+    PYTHON_API_DISTRIBUTION_NAME: "hiveio-smoke-test-api"
+    PYTHON_API_PACKAGE_NAME: "hiveio_smoke_test_api"
+    PYTHON_API_NAMESPACE: "test_api_client"
+    PYTHON_API_PIP_EXTRA_ARGS: "--find-links ${CI_PROJECT_DIR}/python-api-client/dist"
+
+python_api_package_smoke_generate:
+  stage: build
+  extends:
+    - .python_api_package_generate
+    - .python_api_package_smoke
+  needs:
+    - job: build_wheel
+      artifacts: true
+    - job: build_runtime_wheel
+      artifacts: true
+  before_script:
+    - !reference [.python_api_package_base, before_script]
+    - export PYTHON_API_GENERATOR_REQUIREMENT="$(ls "${CI_PROJECT_DIR}"/python/dist/hiveio_api_client_generator-*.whl)"
+    - RUNTIME_WHEEL="$(basename "$(ls "${CI_PROJECT_DIR}"/python-api-client/dist/hiveio_api_client-*.whl)")"
+    - RUNTIME_VERSION="$(echo "${RUNTIME_WHEEL}" | sed -E 's/^hiveio_api_client-(.+)-py3-none-any\.whl$/\1/')"
+    - export PYTHON_API_CLIENT_RUNTIME_REQUIREMENT="==${RUNTIME_VERSION}"
+
+python_api_package_smoke_build:
+  stage: build
+  extends:
+    - .python_api_package_build
+    - .python_api_package_smoke
+  needs:
+    - job: python_api_package_smoke_generate
+      artifacts: true
+
+python_api_package_smoke_test:
+  stage: build
+  extends:
+    - .python_api_package_test
+    - .python_api_package_smoke
+  needs:
+    - job: python_api_package_smoke_build
+      artifacts: true
+    - job: build_runtime_wheel
+      artifacts: true
 
 deploy_dev_package:
   stage: deploy
@@ -108,4 +180,15 @@ deploy_wheel_to_gitlab:
   needs:
     - job: pre_commit_checks
     - job: build_wheel
+  when: on_success
+
+deploy_runtime_wheel_to_gitlab:
+  stage: deploy
+  extends: .deploy_wheel_to_gitlab_template
+  variables:
+    PYPROJECT_DIR: "${CI_PROJECT_DIR}/python-api-client"
+  needs:
+    - job: runtime_tests
+    - job: build_runtime_wheel
+    - job: python_api_package_smoke_test
   when: on_success
