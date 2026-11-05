@@ -195,8 +195,76 @@
     - if: $CI_COMMIT_BRANCH || $CI_COMMIT_TAG
       when: on_success
   variables:
+    PYTHON_API_TWINE_REQUIREMENT: "twine==6.2.0"  # pinned by this template, like the generator
     TWINE_USERNAME: "gitlab-ci-token"
     TWINE_PASSWORD: "${CI_JOB_TOKEN}"
   script:
-    - pip install twine
-    - twine upload --non-interactive --skip-existing --repository-url "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi" "${PYTHON_API_DIST_DIR}"/*.whl
+    - pip install "${PYTHON_API_TWINE_REQUIREMENT}"
+    - twine --version
+    # The GitLab registry does not support `twine upload --skip-existing` (twine 7 refuses the option): a wheel already
+    # in the simple index of the registry is not uploaded, any failure of an upload fails the job.
+    - |
+      python3 - <<'EOF'
+      import base64
+      import os
+      import re
+      import subprocess
+      import sys
+      import urllib.error
+      import urllib.request
+      from html.parser import HTMLParser
+      from pathlib import Path
+      from urllib.parse import unquote, urlsplit
+
+      class FileNames(HTMLParser):
+          def __init__(self) -> None:
+              super().__init__()
+              self.names: set[str] = set()
+
+          def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+              href = dict(attrs).get("href")
+              if tag == "a" and href:
+                  self.names.add(unquote(urlsplit(href).path.rsplit("/", 1)[-1]))
+
+          def handle_data(self, data: str) -> None:
+              self.names.add(data.strip())
+
+      class NoRedirect(urllib.request.HTTPRedirectHandler):
+          # GitLab redirects requests of packages it does not have to PyPI (package forwarding) - not followed, so the
+          # job token is not sent there.
+          def redirect_request(self, *args, **kwargs):
+              return None
+
+      repository_url = f"{os.environ['CI_API_V4_URL']}/projects/{os.environ['CI_PROJECT_ID']}/packages/pypi"
+      credentials = base64.b64encode(f"{os.environ['TWINE_USERNAME']}:{os.environ['TWINE_PASSWORD']}".encode()).decode()
+      opener = urllib.request.build_opener(NoRedirect)
+
+      def published_file_names(distribution: str) -> set[str]:
+          normalized = re.sub(r"[-_.]+", "-", distribution).lower()
+          request = urllib.request.Request(
+              f"{repository_url}/simple/{normalized}", headers={"Authorization": f"Basic {credentials}"}
+          )
+          try:
+              with opener.open(request, timeout=60) as response:
+                  parser = FileNames()
+                  parser.feed(response.read().decode())
+                  return parser.names
+          except urllib.error.HTTPError as error:
+              if error.code == 404 or 300 <= error.code < 400:
+                  return set()
+              sys.exit(f"Checking whether {distribution} is published in {repository_url} failed: {error}")
+
+      wheels = sorted(Path(os.environ["PYTHON_API_DIST_DIR"]).glob("*.whl"))
+      if not wheels:
+          sys.exit(f"No wheels to publish in {os.environ['PYTHON_API_DIST_DIR']}")
+      to_upload = []
+      for wheel in wheels:
+          if wheel.name in published_file_names(wheel.name.split("-", 1)[0]):
+              print(f"{wheel.name} is already published in {repository_url} - not uploaded")
+          else:
+              to_upload.append(str(wheel))
+      if to_upload:
+          command = ["twine", "upload", "--non-interactive", "--repository-url", repository_url, *to_upload]
+          print(" ".join(command), flush=True)
+          sys.exit(subprocess.run(command).returncode)
+      EOF
