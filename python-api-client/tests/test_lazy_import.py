@@ -1,3 +1,4 @@
+# private-test-exempt: asserts each public re-export is the same object as its hiveio_api_client._utilities.smart_lazy_import original (wax-spec-generator#19 acceptance criteria)
 from __future__ import annotations
 
 import importlib
