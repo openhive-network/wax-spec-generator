@@ -162,6 +162,21 @@ python_api_package_smoke_test:
     - job: build_runtime_wheel
       artifacts: true
 
+# Publishes to the registry of this project only (the template's default). The second publish of the same wheel takes
+# the already-published path - an upload of it would fail.
+python_api_package_smoke_publish:
+  stage: deploy
+  extends:
+    - .python_api_package_publish
+    - .python_api_package_smoke
+  needs:
+    - job: python_api_package_smoke_build
+      artifacts: true
+    - job: python_api_package_smoke_test
+  script:
+    - !reference [.python_api_package_publish, script]
+    - !reference [.python_api_package_publish, script]
+
 deploy_dev_package:
   stage: deploy
   extends:
