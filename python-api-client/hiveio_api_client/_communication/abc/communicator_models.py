@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from functools import cached_property
 from typing import TYPE_CHECKING, Literal, Protocol, Self, cast, runtime_checkable
 
-from hiveio_api_client._communication.jsonrpc import JSONRPCRequest, _jsonrpc_id
+from hiveio_api_client._communication.jsonrpc import JSONRPCRequest, jsonrpc_id
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable
@@ -62,7 +62,7 @@ class Request:
                 JSONRPCRequest(
                     method=method,
                     params=call.get("params", {}),
-                    id_=_jsonrpc_id(call.get("id")),
+                    id_=jsonrpc_id(call.get("id")),
                     jsonrpc=str(call.get("jsonrpc", "2.0")),
                 )
             )

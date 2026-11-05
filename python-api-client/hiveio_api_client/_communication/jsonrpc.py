@@ -21,6 +21,7 @@ __all__ = [
     "JSONRPCRequest",
     "JSONRPCResult",
     "build_response",
+    "jsonrpc_id",
 ]
 
 ExpectResultT = TypeVar("ExpectResultT")
@@ -28,7 +29,7 @@ ExpectResultT = TypeVar("ExpectResultT")
 JsonRpcIdT = int | str | None
 
 
-def _jsonrpc_id(value: object) -> JsonRpcIdT:
+def jsonrpc_id(value: object) -> JsonRpcIdT:
     """The id of a JSON-RPC call or response - `None` when it is not a number nor a string."""
     return value if isinstance(value, int | str) else None
 
@@ -84,7 +85,7 @@ def build_response(
         ValueError: When the result does not match `expected_type` (raised by the value builder of the codec).
     """
     build_result = value_builder(expected_type)
-    id_ = _jsonrpc_id(response.get("id"))
+    id_ = jsonrpc_id(response.get("id"))
     jsonrpc = str(response.get("jsonrpc", "2.0"))
     if "result" not in response:
         error = response.get("error", {})
