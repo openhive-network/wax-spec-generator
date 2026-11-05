@@ -6,7 +6,7 @@ imported only when one of its names is accessed for the first time.
 
 Usage:
 ```python
-from hiveio_api_client._utilities.smart_lazy_import import aggregate_same_import, lazy_module_factory
+from hiveio_api_client.lazy_import import aggregate_same_import, lazy_module_factory
 
 __all__ = ["DatabaseApi", "FindAccountsResponse"]
 
