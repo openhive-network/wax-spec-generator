@@ -45,6 +45,7 @@ def generate_api_client_from_swagger(
     Raises:
         FileNotFoundError: If the OpenAPI definition file does not exist.
         RunningScriptWithoutAppropriateFlagError: If the script is run without the appropriate (-m) flag.
+        MethodNameCollisionError: If two operations cannot be given distinct method names.
     """
     check_whether_was_ran_as_script()
 

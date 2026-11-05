@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Collection
+    from collections.abc import Collection, Mapping, Sequence
     from pathlib import Path
 
 
@@ -73,6 +73,19 @@ class UnsupportedHttpMethodError(ApiClientGeneratorError):
     def __init__(self, method: str) -> None:
         self.message = f"Unsupported HTTP method: {method}."
         self.method = method
+        super().__init__(self.message)
+
+
+class MethodNameCollisionError(ApiClientGeneratorError):
+    """Exception raised when several REST API operations would be generated as methods of the same name."""
+
+    def __init__(self, collisions: Mapping[str, Sequence[tuple[str, str]]]) -> None:
+        described = "; ".join(
+            f"`{name}`: {', '.join(f'{method.upper()} {url_path}' for url_path, method in operations)}"
+            for name, operations in sorted(collisions.items())
+        )
+        self.message = f"Operations would be generated as methods of the same name: {described}."
+        self.collisions = {name: tuple(operations) for name, operations in collisions.items()}
         super().__init__(self.message)
 
 
