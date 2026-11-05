@@ -30,6 +30,7 @@ beekeepy, hiveio-api or hiveio-schemas.
 - Transport - `SyncRemoteHandle` / `AsyncRemoteHandle` with `RemoteHandleSettings` (endpoint, timeout, retries), JSON-RPC
   and REST calls, batches of JSON-RPC calls (`handle.batch()`) and callbacks of requests. It uses the standard library
   (`urllib`); asynchronous handles send requests in a worker thread.
+- Lazy imports - `hiveio_api_client.lazy_import`, see [Lazy imports](#lazy-imports).
 
 ## Usage
 
@@ -50,6 +51,41 @@ async with handle.batch() as batch:
     second = await batch.api.second_endpoint(...)
 print(first.some_field, second.other_field)
 ```
+
+## Lazy imports
+
+`hiveio_api_client.lazy_import` is the public module of the helpers a package uses to import the names of its `__all__`
+only when they are accessed for the first time (hiveio-api, beekeepy and clive import them from here):
+
+- `lazy_module_factory(globals(), *translations)` - creates the module `__getattr__`; each translation is
+  `(module_path, name)` or `(module_path, name, alias)`. Every name of the module `__all__` has to be translated
+  (`ImportError` otherwise); accessing a name that is neither translated nor aliased raises `AttributeError`.
+- `aggregate_same_import(*names, module=...)` - translations of several names (or `(name, alias)` pairs) of one module.
+- `smart_lazy_getattr(name, globals(), translations, aliases)` - the lookup performed by the created `__getattr__`.
+- The type aliases of their signatures (`ModuleGlobals`, `ModuleInterfaceMappingInput`, `GetattrProtocol`, ...).
+
+```python
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from hiveio_api_client.lazy_import import aggregate_same_import, lazy_module_factory
+
+if TYPE_CHECKING:  # type checkers see the names, at runtime they are imported on first use
+    from my_package.client import AsyncClient, SyncClient
+    from my_package.models import Model
+
+__all__ = ["AsyncClient", "Model", "SyncClient"]
+
+__getattr__ = lazy_module_factory(
+    globals(),
+    *aggregate_same_import("AsyncClient", "SyncClient", module="my_package.client"),
+    ("my_package.models", "Model"),
+)
+```
+
+`hiveio_api_client._utilities.smart_lazy_import` keeps working, but it is private - import the helpers from
+`hiveio_api_client.lazy_import`.
 
 ## Errors
 

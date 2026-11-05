@@ -79,7 +79,7 @@ Key modules:
 
 ### Python runtime
 
-`python-api-client/hiveio_api_client/` mirrors `hiveio_api.client` of hive/hive (same public names, so hiveio-api can re-export them): `_apis/abc/` (API base classes, `Sendable`), `_communication/` (requests, callbacks, JSON-RPC, URLs, `http_transport.py` on `urllib`), `_remote_handle/` (`SyncRemoteHandle`/`AsyncRemoteHandle`, batches, settings), `_values.py` (`ValueCodec` - the hook libraries like hiveio-api use to convert their own field types), `exceptions.py`. It must not import beekeepy, hiveio_api or schemas (checked by `tests/test_package.py`).
+`python-api-client/hiveio_api_client/` mirrors `hiveio_api.client` of hive/hive (same public names, so hiveio-api can re-export them): `_apis/abc/` (API base classes, `Sendable`), `_communication/` (requests, callbacks, JSON-RPC, URLs, `http_transport.py` on `urllib`), `_remote_handle/` (`SyncRemoteHandle`/`AsyncRemoteHandle`, batches, settings), `_values.py` (`ValueCodec` - the hook libraries like hiveio-api use to convert their own field types), `exceptions.py`, `lazy_import.py` (public lazy-`__getattr__` helpers, re-exporting `_utilities/smart_lazy_import.py`). It must not import beekeepy, hiveio_api or schemas (checked by `tests/test_package.py`).
 
 ## CI/CD
 
