@@ -41,7 +41,7 @@
   image: "${PYTHON_IMAGE}"
   variables:
     # pinned by this template - apps get new versions when the template is updated
-    PYTHON_API_GENERATOR_REQUIREMENT: "hiveio-api-client-generator==1.7.1.post20261029210531"
+    PYTHON_API_GENERATOR_REQUIREMENT: "hiveio-api-client-generator==1.7.1.post20261105045512"
     PYTHON_API_CLIENT_RUNTIME_REQUIREMENT: ">=1.7.1.post0,<2"
     # the hive group registry, forwarding other packages to PyPI
     PYTHON_API_INDEX_URL: "https://gitlab.syncad.com/api/v4/groups/136/-/packages/pypi/simple"
