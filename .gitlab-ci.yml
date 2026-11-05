@@ -142,6 +142,24 @@ python_api_package_smoke_generate:
     - RUNTIME_VERSION="$(echo "${RUNTIME_WHEEL}" | sed -E 's/^hiveio_api_client-(.+)-py3-none-any\.whl$/\1/')"
     - export PYTHON_API_CLIENT_RUNTIME_REQUIREMENT="==${RUNTIME_VERSION}"
 
+# The template's pinned generator (not the one of this pipeline) must give distinct names to REST paths that differ
+# only by path parameters - the apps including the template get exactly that generator.
+python_api_package_pinned_generator_check:
+  stage: build
+  extends: .python_api_package_generate
+  variables:
+    PYTHON_API_SWAGGER_JSON: "${CI_PROJECT_DIR}/python/tests/swagger/rest_name_collision/openapi.json"
+    PYTHON_API_DISTRIBUTION_NAME: "hiveio-name-collision-api"
+    PYTHON_API_PACKAGE_NAME: "hiveio_name_collision_api"
+    PYTHON_API_NAMESPACE: "name_collision_api_client"
+  needs: []
+  script:
+    - !reference [.python_api_package_generate, script]
+    - >-
+      python3 "${CI_PROJECT_DIR}/scripts/check_generated_rest_method_names.py"
+      "${PYTHON_API_PACKAGE_DIR}/${PYTHON_API_PACKAGE_NAME}"
+      "/posts" "/posts/{author}/{permlink}" "/communities" "/communities/{name}"
+
 python_api_package_smoke_build:
   stage: build
   extends:
