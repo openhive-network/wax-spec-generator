@@ -83,10 +83,24 @@ build:
   needs:
     - job: lint
 
+# Python wheels get dynamic versions, `dirty` when the work tree differs from the commit. These jobs do not use the
+# submodule - updated with `--remote` it differs from the commit recorded here.
+.python_wheel_clean_checkout:
+  variables:
+    GIT_SUBMODULE_STRATEGY: none
+
+.python_wheel_build:
+  extends:
+    - .build_wheel_template
+    - .python_wheel_clean_checkout
+  before_script:
+    - !reference [.configuration_template, before_script]
+    - git status --porcelain  # dynamic versioning adds `dirty` to the version when this prints anything
+
 build_wheel:
   stage: build
   extends:
-    - .build_wheel_template
+    - .python_wheel_build
   variables:
     PYPROJECT_DIR: "${CI_PROJECT_DIR}/python"
   needs:
@@ -95,7 +109,7 @@ build_wheel:
 build_runtime_wheel:
   stage: build
   extends:
-    - .build_wheel_template
+    - .python_wheel_build
   variables:
     PYPROJECT_DIR: "${CI_PROJECT_DIR}/python-api-client"
   needs:
@@ -174,7 +188,9 @@ deploy_production_public_npm:
 
 deploy_wheel_to_gitlab:
   stage: deploy
-  extends: .deploy_wheel_to_gitlab_template
+  extends:
+    - .deploy_wheel_to_gitlab_template
+    - .python_wheel_clean_checkout  # publishes the wheel of the version it computes - the same as the build's
   variables:
     PYPROJECT_DIR: "${CI_PROJECT_DIR}/python"
   needs:
@@ -184,7 +200,9 @@ deploy_wheel_to_gitlab:
 
 deploy_runtime_wheel_to_gitlab:
   stage: deploy
-  extends: .deploy_wheel_to_gitlab_template
+  extends:
+    - .deploy_wheel_to_gitlab_template
+    - .python_wheel_clean_checkout  # publishes the wheel of the version it computes - the same as the build's
   variables:
     PYPROJECT_DIR: "${CI_PROJECT_DIR}/python-api-client"
   needs:
