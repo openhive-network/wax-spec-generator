@@ -1,3 +1,4 @@
+# private-test-exempt: asserts each public re-export is the same object as its api_client_generator._private original (wax-spec-generator#18 acceptance criteria)
 from __future__ import annotations
 
 import ast
