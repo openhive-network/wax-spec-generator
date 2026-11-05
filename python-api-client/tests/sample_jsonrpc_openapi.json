@@ -1,0 +1,72 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Sample JSON-RPC API",
+    "description": "JSON-RPC API of tests of the runtime package",
+    "version": "1.0.0"
+  },
+  "components": {
+    "schemas": {
+      "get_balance": {
+        "type": "object",
+        "properties": {
+          "account_name": {"type": "string"}
+        },
+        "required": ["account_name"]
+      },
+      "get_balance_response": {
+        "type": "object",
+        "properties": {
+          "account_name": {"type": "string"},
+          "amount": {"type": "integer"}
+        },
+        "required": ["account_name", "amount"]
+      },
+      "get_head_block": {
+        "type": "object",
+        "properties": {}
+      },
+      "get_head_block_response": {
+        "type": "object",
+        "properties": {
+          "block_num": {"type": "integer"}
+        },
+        "required": ["block_num"]
+      }
+    }
+  },
+  "paths": {
+    "sample_api.get_balance": {
+      "post": {
+        "operationId": "get_balance",
+        "description": "Balance of the account",
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/get_balance"}}}
+        },
+        "responses": {
+          "200": {
+            "description": "Balance of the account",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/get_balance_response"}}}
+          }
+        }
+      }
+    },
+    "sample_api.get_head_block": {
+      "post": {
+        "operationId": "get_head_block",
+        "description": "Head block of the chain",
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/get_head_block"}}}
+        },
+        "responses": {
+          "200": {
+            "description": "Head block of the chain",
+            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/get_head_block_response"}}}
+          }
+        }
+      }
+    }
+  }
+}
