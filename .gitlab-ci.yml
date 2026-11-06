@@ -169,6 +169,58 @@ python_api_package_smoke_build:
     - job: python_api_package_smoke_generate
       artifacts: true
 
+# The template's build in a fixture app whose submodule is checked out at a commit other than the recorded one: the
+# version is not dirty. A modified tracked file of the app still makes it dirty.
+python_api_package_smoke_submodule_build:
+  stage: build
+  extends:
+    - .python_api_package_build
+    - .python_api_package_smoke
+  needs:
+    - job: python_api_package_smoke_generate
+      artifacts: true
+  variables:
+    GIT_CONFIG_COUNT: 3
+    GIT_CONFIG_KEY_0: "user.name"
+    GIT_CONFIG_VALUE_0: "Smoke Test"
+    GIT_CONFIG_KEY_1: "user.email"
+    GIT_CONFIG_VALUE_1: "smoke-test@example.com"
+    GIT_CONFIG_KEY_2: "protocol.file.allow"  # submodules of local paths
+    GIT_CONFIG_VALUE_2: "always"
+  before_script:
+    - !reference [.python_api_package_base, before_script]
+    - FIXTURE_DIR="$(mktemp -d)"
+    - git init --quiet --initial-branch=main "${FIXTURE_DIR}/library"
+    - git -C "${FIXTURE_DIR}/library" commit --quiet --allow-empty -m "first"
+    - git -C "${FIXTURE_DIR}/library" commit --quiet --allow-empty -m "second"
+    - git init --quiet --initial-branch=main "${FIXTURE_DIR}/app"
+    - cd "${FIXTURE_DIR}/app"
+    - echo "app sources" > sources.txt
+    - git submodule --quiet add "${FIXTURE_DIR}/library" submodules/library
+    - git -C submodules/library checkout --quiet HEAD~1
+    - git add sources.txt .gitmodules submodules/library
+    - git commit --quiet -m "app"
+    - git tag 1.0.0
+    - git -C submodules/library checkout --quiet main
+    - cp -r "${CI_PROJECT_DIR}/${PYTHON_API_PACKAGE_DIR}" .
+  script:
+    - test "$(git status --porcelain --untracked-files=no --ignore-submodules=none)" = " M submodules/library"
+    - !reference [.python_api_package_build, script]
+    - WHEEL="$(basename "$(ls "${PYTHON_API_DIST_DIR}"/*.whl)")"
+    - |
+      case "${WHEEL}" in
+        *dirty*) echo "${WHEEL} is dirty - the submodule at another commit marked the version dirty" >&2; exit 1 ;;
+      esac
+    - rm -rf "${PYTHON_API_DIST_DIR}"
+    - echo "modified" >> sources.txt
+    - !reference [.python_api_package_build, script]
+    - WHEEL="$(basename "$(ls "${PYTHON_API_DIST_DIR}"/*.whl)")"
+    - |
+      case "${WHEEL}" in
+        *dirty*) echo "${WHEEL} is dirty, as expected with sources.txt modified" ;;
+        *) echo "${WHEEL} is not dirty - the modified sources.txt did not mark the version dirty" >&2; exit 1 ;;
+      esac
+
 python_api_package_smoke_test:
   stage: build
   extends:

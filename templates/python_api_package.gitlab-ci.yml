@@ -144,6 +144,14 @@
     - GIT_EXCLUDE_FILE="$(git rev-parse --git-path info/exclude)"
     - mkdir -p "$(dirname "${GIT_EXCLUDE_FILE}")"
     - echo "/${PYTHON_API_PACKAGE_DIR}/" >> "${GIT_EXCLUDE_FILE}"
+    # Submodules left at other commits (e.g. by a reused checkout of the runner) are not app sources either. Dynamic
+    # versioning checks `git describe --dirty` and `git status --porcelain`: both honor `submodule.<name>.ignore`, while
+    # `git describe` ignores `diff.ignoreSubmodules`. A gitlink missing in .gitmodules is named by its path.
+    - |
+      { git config --file .gitmodules --name-only --get-regexp '^submodule\..*\.path$' 2>/dev/null | sed 's/\.path$//' || true
+        git ls-files --stage | sed -n 's/^160000 [0-9a-f]* [0-9]*\t/submodule./p'
+      } | while read -r submodule; do git config "${submodule}.ignore" all; done
+    - git status --porcelain --ignore-submodules=none  # unfiltered - submodules at other commits show here only
     - git status --porcelain  # dynamic versioning adds `dirty` to the version when this prints anything
     - pip wheel --no-deps --wheel-dir "${PYTHON_API_DIST_DIR}" "./${PYTHON_API_PACKAGE_DIR}"
     - ls -al "${PYTHON_API_DIST_DIR}"
