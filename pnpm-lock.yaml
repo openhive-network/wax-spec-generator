@@ -15,7 +15,7 @@ catalogs:
       version: 6.0.3
 
 overrides:
-  '@hiveio/beekeeper': 1.28.9-rc0-stable.261028200530
+  '@hiveio/beekeeper': 1.28.9-rc0-stable.261107004332
 
 importers:
 
@@ -464,6 +464,7 @@ packages:
   eslint@8.57.0:
     resolution: {integrity: sha512-dZ6+mexnaTIbSBZWgou51U6OmzIhYM2VcNdtiTtI7qPNZm35Akpr0f6vtw3w1Kmn5PYo+tZVfh13WrhpS6oLqQ==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
 
   espree@9.6.1:
