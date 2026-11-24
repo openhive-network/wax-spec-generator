@@ -58,6 +58,31 @@
     - source "${HOME}/python-api-package-venv/bin/activate"
     - python3 -V
 
+# Shell functions checking the wheel of PYTHON_API_DIST_DIR - functions, so that they can also run on other paths.
+.python_api_package_wheel_checks:
+  script:
+    - |
+      python_api_package_check_built_wheel() {
+        if [ ! -d "${PYTHON_API_DIST_DIR}" ]; then
+          echo "${PYTHON_API_DIST_DIR} is not a directory - pip wheel did not write the wheel into it:" >&2
+          ls -ald "${PYTHON_API_DIST_DIR}" >&2 || true
+          exit 1
+        fi
+        local wheels
+        wheels="$(find "${PYTHON_API_DIST_DIR}" -mindepth 1 -maxdepth 1 -name '*.whl' | wc -l)"
+        if [ "${wheels}" -ne 1 ]; then
+          echo "Expected exactly one wheel in ${PYTHON_API_DIST_DIR}, found ${wheels}:" >&2
+          ls -al "${PYTHON_API_DIST_DIR}" >&2
+          exit 1
+        fi
+      }
+      python_api_package_check_wheel_to_install() {
+        if [ -z "$(find "${PYTHON_API_DIST_DIR}" -mindepth 1 -maxdepth 1 -name '*.whl' 2>/dev/null)" ]; then
+          echo "No wheel in ${PYTHON_API_DIST_DIR} - the build job produced none" >&2
+          exit 1
+        fi
+      }
+
 .python_api_package_generate:
   extends: .python_api_package_base
   script:
@@ -153,8 +178,13 @@
       } | while read -r submodule; do git config "${submodule}.ignore" all; done
     - git status --porcelain --ignore-submodules=none  # unfiltered - submodules at other commits show here only
     - git status --porcelain  # dynamic versioning adds `dirty` to the version when this prints anything
+    - rm -rf "${PYTHON_API_DIST_DIR}"
+    - mkdir -p "${PYTHON_API_DIST_DIR}"
     - pip wheel --no-deps --wheel-dir "${PYTHON_API_DIST_DIR}" "./${PYTHON_API_PACKAGE_DIR}"
     - ls -al "${PYTHON_API_DIST_DIR}"
+    # pip has written the wheel as a file named like the directory once, and the build passed
+    - !reference [.python_api_package_wheel_checks, script]
+    - python_api_package_check_built_wheel
   artifacts:
     expire_in: 1 week
     paths:
@@ -163,6 +193,8 @@
 .python_api_package_test:
   extends: .python_api_package_base
   script:
+    - !reference [.python_api_package_wheel_checks, script]
+    - python_api_package_check_wheel_to_install
     - pip install --index-url "${PYTHON_API_INDEX_URL}" ${PYTHON_API_PIP_EXTRA_ARGS} "${PYTHON_API_DIST_DIR}"/*.whl
     - pip list
     - |
@@ -265,7 +297,7 @@
 
       wheels = sorted(Path(os.environ["PYTHON_API_DIST_DIR"]).glob("*.whl"))
       if not wheels:
-          sys.exit(f"No wheels to publish in {os.environ['PYTHON_API_DIST_DIR']}")
+          sys.exit(f"No wheels to publish in {os.environ['PYTHON_API_DIST_DIR']} - the build job produced none")
       def is_published(wheel: Path) -> bool:
           return wheel.name in published_file_names(wheel.name.split("-", 1)[0])
 
