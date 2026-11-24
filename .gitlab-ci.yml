@@ -160,6 +160,49 @@ python_api_package_pinned_generator_check:
       "${PYTHON_API_PACKAGE_DIR}/${PYTHON_API_PACKAGE_NAME}"
       "/posts" "/posts/{author}/{permlink}" "/communities" "/communities/{name}"
 
+# The wheel checks of templates/python_api_package.gitlab-ci.yml on dist paths that are a file, an empty directory, a
+# directory of two wheels and a directory of one wheel.
+python_api_package_wheel_checks:
+  stage: tests
+  needs: []
+  script:
+    - !reference [.python_api_package_wheel_checks, script]
+    - |
+      expect_failure() {
+        local message="$1" check="$2" output
+        if output="$("${check}" 2>&1)"; then
+          echo "${check} passed on ${PYTHON_API_DIST_DIR}, expected it to fail with: ${message}" >&2
+          exit 1
+        fi
+        if ! grep -qF -- "${message}" <<< "${output}"; then
+          echo "${check} failed on ${PYTHON_API_DIST_DIR} without the message '${message}':" >&2
+          echo "${output}" >&2
+          exit 1
+        fi
+        echo "${check} failed as expected on ${PYTHON_API_DIST_DIR}:"
+        echo "${output}"
+      }
+    - FIXTURE_DIR="$(mktemp -d)"
+    - export PYTHON_API_DIST_DIR="${FIXTURE_DIR}/file/dist"
+    - mkdir -p "$(dirname "${PYTHON_API_DIST_DIR}")"
+    - echo "not a wheel" > "${PYTHON_API_DIST_DIR}"
+    - expect_failure "${PYTHON_API_DIST_DIR} is not a directory" python_api_package_check_built_wheel
+    - expect_failure "No wheel in ${PYTHON_API_DIST_DIR} - the build job produced none" python_api_package_check_wheel_to_install
+    - export PYTHON_API_DIST_DIR="${FIXTURE_DIR}/empty/dist"
+    - mkdir -p "${PYTHON_API_DIST_DIR}"
+    - expect_failure "Expected exactly one wheel in ${PYTHON_API_DIST_DIR}, found 0" python_api_package_check_built_wheel
+    - expect_failure "No wheel in ${PYTHON_API_DIST_DIR} - the build job produced none" python_api_package_check_wheel_to_install
+    - export PYTHON_API_DIST_DIR="${FIXTURE_DIR}/two/dist"
+    - mkdir -p "${PYTHON_API_DIST_DIR}"
+    - touch "${PYTHON_API_DIST_DIR}/a-1.0-py3-none-any.whl" "${PYTHON_API_DIST_DIR}/a-1.1-py3-none-any.whl"
+    - expect_failure "Expected exactly one wheel in ${PYTHON_API_DIST_DIR}, found 2" python_api_package_check_built_wheel
+    - (python_api_package_check_wheel_to_install)
+    - export PYTHON_API_DIST_DIR="${FIXTURE_DIR}/one/dist"
+    - mkdir -p "${PYTHON_API_DIST_DIR}"
+    - touch "${PYTHON_API_DIST_DIR}/a-1.0-py3-none-any.whl"
+    - (python_api_package_check_built_wheel)
+    - (python_api_package_check_wheel_to_install)
+
 python_api_package_smoke_build:
   stage: build
   extends:
