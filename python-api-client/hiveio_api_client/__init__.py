@@ -28,14 +28,21 @@ if TYPE_CHECKING:
         ApiArgumentsToSerialize,
         HandleT,
         RegisteredApisT,
+        copy_validation_masks,
     )
     from hiveio_api_client._apis.abc.api_collection import (
         AbstractAsyncApiCollection,
         AbstractSyncApiCollection,
     )
+    from hiveio_api_client._apis.abc.endpoint import ClassFilterInterface
     from hiveio_api_client._apis.abc.sendable import (
         AsyncSendable,
         SyncSendable,
+    )
+    from hiveio_api_client._apis.abc.validation_masks import (
+        compiled_validation_mask_of,
+        compiled_validation_masks,
+        current_compiled_validation_masks,
     )
     from hiveio_api_client._communication.abc.communicator_models import (
         AsyncCallback,
@@ -102,6 +109,7 @@ __all__ = [
     "AsyncResponseCallback",
     "AsyncSendable",
     "Callbacks",
+    "ClassFilterInterface",
     "ErrorCallback",
     "ExpectResultT",
     "HandleT",
@@ -128,6 +136,10 @@ __all__ = [
     "ValueCodec",
     "WsUrl",
     "build_response",
+    "compiled_validation_mask_of",
+    "compiled_validation_masks",
+    "copy_validation_masks",
+    "current_compiled_validation_masks",
     "install_value_codec",
     "installed_value_codec",
     "to_api_builtins",
@@ -142,6 +154,7 @@ __getattr__ = lazy_module_factory(
         "ApiArgumentsToSerialize",
         "HandleT",
         "RegisteredApisT",
+        "copy_validation_masks",
         module="hiveio_api_client._apis.abc.api",
     ),
     *aggregate_same_import(
@@ -150,9 +163,19 @@ __getattr__ = lazy_module_factory(
         module="hiveio_api_client._apis.abc.api_collection",
     ),
     *aggregate_same_import(
+        "ClassFilterInterface",
+        module="hiveio_api_client._apis.abc.endpoint",
+    ),
+    *aggregate_same_import(
         "AsyncSendable",
         "SyncSendable",
         module="hiveio_api_client._apis.abc.sendable",
+    ),
+    *aggregate_same_import(
+        "compiled_validation_mask_of",
+        "compiled_validation_masks",
+        "current_compiled_validation_masks",
+        module="hiveio_api_client._apis.abc.validation_masks",
     ),
     *aggregate_same_import(
         "AsyncCallback",

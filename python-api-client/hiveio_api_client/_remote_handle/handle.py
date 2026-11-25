@@ -232,10 +232,14 @@ class SyncRemoteHandle(_RemoteHandle, SyncSendable, Generic[ApiT]):
         Batch of JSON-RPC calls - sent as one request when its context is left.
 
         Results of calls are available after the batch was sent. When a call failed, its error is raised when the
-        context is left, or - with `delay_error_on_data_access` - when its result is accessed.
+        context is left, or - with `delay_error_on_data_access` - when its result is accessed. Endpoints of the batch
+        have the validation masks of endpoints of the handle.
         """
         return SyncBatchHandle(
-            owner=self, api=self.__api_factory, delay_error_on_data_access=delay_error_on_data_access
+            owner=self,
+            api=self.__api_factory,
+            delay_error_on_data_access=delay_error_on_data_access,
+            validation_masks_of=self.__api,
         )
 
     def _send(
@@ -307,7 +311,10 @@ class AsyncRemoteHandle(_RemoteHandle, AsyncSendable, Generic[ApiT]):
     def batch(self, *, delay_error_on_data_access: bool = False) -> AsyncBatchHandle[ApiT]:
         """Batch of JSON-RPC calls - as `SyncRemoteHandle.batch`, used with `async with`."""
         return AsyncBatchHandle(
-            owner=self, api=self.__api_factory, delay_error_on_data_access=delay_error_on_data_access
+            owner=self,
+            api=self.__api_factory,
+            delay_error_on_data_access=delay_error_on_data_access,
+            validation_masks_of=self.__api,
         )
 
     async def _async_send(

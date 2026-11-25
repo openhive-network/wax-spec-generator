@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Final, Generic, Protocol, Self, TypeVar, cast
 
+from hiveio_api_client._apis.abc.api import copy_validation_masks
 from hiveio_api_client._apis.abc.sendable import AsyncSendable, SyncSendable
+from hiveio_api_client._apis.abc.validation_masks import compiled_validation_masks, current_compiled_validation_masks
 from hiveio_api_client._communication.abc.communicator_models import AsyncCallbacks, Callbacks
 from hiveio_api_client._communication.jsonrpc import JSONRPCResult
 from hiveio_api_client._values import value_builder
@@ -89,6 +91,8 @@ class _DelayedResult:
 class _Call:
     data: str
     expected_type: type[object]
+    validation_masks: Mapping[str, object]
+    """Compiled validation masks of the call (of its endpoint) - given to validators when the batch is sent."""
     result: _DelayedResult = field(default_factory=_DelayedResult)
 
 
@@ -114,7 +118,7 @@ class _Batch(Generic[CallbacksT]):
     ) -> JSONRPCResult[ExpectResultT]:
         if url is not None or data is None:
             raise UnsupportedBatchCallError("Only JSON-RPC calls can be sent in a batch, not calls of REST endpoints")
-        call = _Call(data=data, expected_type=expected_type)
+        call = _Call(data=data, expected_type=expected_type, validation_masks=current_compiled_validation_masks())
         self.__calls.append(call)
         if callbacks is not None:
             self.__callbacks.append(callbacks)
@@ -125,6 +129,10 @@ class _Batch(Generic[CallbacksT]):
 
     def _body(self) -> str:
         return "[" + ",".join(call.data for call in self.__calls) + "]"
+
+    def _validation_masks(self) -> Mapping[str, object]:
+        """Compiled validation masks of all calls of the batch - by JSON-RPC methods of their endpoints."""
+        return {method: mask for call in self.__calls for method, mask in call.validation_masks.items()}
 
     def _request_callbacks(self, callbacks_type: type[CallbacksT]) -> CallbacksT:
         """Callbacks of all calls of the batch - each callback once, in the order of its first occurrence."""
@@ -195,7 +203,8 @@ class SyncBatchHandle(_Batch[Callbacks], SyncSendable, Generic[ApiT]):
     """
     Batch of JSON-RPC calls of a synchronous handle (see `SyncRemoteHandle.batch`) - sent when its context is left.
 
-    The request of the batch is sent with callbacks of all its calls, each callback once.
+    The request of the batch is sent with callbacks of all its calls, each callback once. The APIs of the batch get the
+    validation masks of `validation_masks_of` (the API of the handle), they can be changed for the batch only.
 
     Example:
     ```python
@@ -212,10 +221,13 @@ class SyncBatchHandle(_Batch[Callbacks], SyncSendable, Generic[ApiT]):
         owner: _SyncBatchOwner,
         api: Callable[[SyncSendable], ApiT],
         delay_error_on_data_access: bool = False,
+        validation_masks_of: object | None = None,
     ) -> None:
         super().__init__(delay_error_on_data_access=delay_error_on_data_access)
         self.__owner = owner
         self.__api = api(self)
+        if validation_masks_of is not None:
+            copy_validation_masks(validation_masks_of, self.__api)
 
     @property
     def api(self) -> ApiT:
@@ -232,7 +244,9 @@ class SyncBatchHandle(_Batch[Callbacks], SyncSendable, Generic[ApiT]):
     ) -> None:
         if exc_type is None and self._has_calls():
             callbacks = self._request_callbacks(Callbacks)
-            self._set_results(self.__owner._send_batch(data=self._body(), callbacks=callbacks))
+            with compiled_validation_masks(self._validation_masks()):
+                response = self.__owner._send_batch(data=self._body(), callbacks=callbacks)
+            self._set_results(response)
 
     def _send(
         self,
@@ -265,10 +279,13 @@ class AsyncBatchHandle(_Batch[AsyncCallbacks], AsyncSendable, Generic[ApiT]):
         owner: _AsyncBatchOwner,
         api: Callable[[AsyncSendable], ApiT],
         delay_error_on_data_access: bool = False,
+        validation_masks_of: object | None = None,
     ) -> None:
         super().__init__(delay_error_on_data_access=delay_error_on_data_access)
         self.__owner = owner
         self.__api = api(self)
+        if validation_masks_of is not None:
+            copy_validation_masks(validation_masks_of, self.__api)
 
     @property
     def api(self) -> ApiT:
@@ -285,7 +302,9 @@ class AsyncBatchHandle(_Batch[AsyncCallbacks], AsyncSendable, Generic[ApiT]):
     ) -> None:
         if exc_type is None and self._has_calls():
             callbacks = self._request_callbacks(AsyncCallbacks)
-            self._set_results(await self.__owner._async_send_batch(data=self._body(), callbacks=callbacks))
+            with compiled_validation_masks(self._validation_masks()):
+                response = await self.__owner._async_send_batch(data=self._body(), callbacks=callbacks)
+            self._set_results(response)
 
     async def _async_send(
         self,

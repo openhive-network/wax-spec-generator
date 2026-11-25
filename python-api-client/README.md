@@ -52,6 +52,27 @@ async with handle.batch() as batch:
 print(first.some_field, second.other_field)
 ```
 
+## Validation masks
+
+An endpoint whose result model has a schema filter (`ClassFilterInterface["..."]`, e.g. models of hiveio-api) takes
+a validation mask - the fields of the result its validation checks, the others are not validated:
+
+```python
+handle.api.block_api.get_block.set_validation_mask({"block": {"transactions": {"signatures": True}, "block_id": True}})
+```
+
+A key per field: `True` validates the whole field, a dict the given fields of its model (of items of a list). The filter
+is a `TypedDict` seen only by type checkers, so editors complete the names of fields and type checkers report wrong
+ones. `set_validation_mask(None)` removes the mask; masks are kept by each instance of an API. A batch of a handle gets
+the masks of the endpoints of the handle (`copy_validation_masks`) - masks changed in the batch stay in it.
+
+The mask does not turn validation on. The API compiles it when it is set (`AbstractApi._compile_validation_mask` - e.g.
+hiveio-api builds a validation model reduced to the fields, so a wrong mask raises at once), and validators of responses
+(callbacks of requests, e.g. `SchemaValidationRules` of beekeepy) get the compiled mask of the endpoint of the request
+being sent by `compiled_validation_mask_of("block_api.get_block")`. Batches of other libraries keep the masks of their
+calls (`current_compiled_validation_masks()` when a call is added) and give them to validators when the batch is sent
+(`with compiled_validation_masks(masks): ...`).
+
 ## Lazy imports
 
 `hiveio_api_client.lazy_import` is the public module of the helpers a package uses to import the names of its `__all__`

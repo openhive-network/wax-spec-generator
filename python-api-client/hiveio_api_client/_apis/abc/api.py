@@ -24,13 +24,14 @@ from hiveio_api_client._apis.abc.rest_api_definition_helpers import (
     SyncRestApiDefinitionHelper,
 )
 from hiveio_api_client._apis.abc.sendable import AsyncSendable, SyncSendable
+from hiveio_api_client._apis.abc.validation_masks import compiled_validation_masks
 from hiveio_api_client._communication.abc.communicator_models import AsyncCallbacks, Callbacks
 from hiveio_api_client._communication.url import HttpUrl
 from hiveio_api_client._utilities.build_json_rpc_call import build_json_rpc_call
 from hiveio_api_client._values import json_default, to_api_builtins
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
+    from collections.abc import Awaitable, Callable, Mapping
 
     from hiveio_api_client._apis.abc.api_collection import AbstractAsyncApiCollection, AbstractSyncApiCollection
     from hiveio_api_client._communication.abc.communicator_models import Methods
@@ -62,6 +63,23 @@ class ApiArgumentSerialization(IntEnum):
 
 def _convert_pascal_case_to_sneak_case(pascal_case_input: str) -> str:
     return re.sub(r"(?<!^)(?=[A-Z])", "_", pascal_case_input).lower()
+
+
+def copy_validation_masks(source: object, target: object) -> None:
+    """
+    Give the APIs of `target` the validation masks of the APIs of `source` (`BoundEndpoint.set_validation_mask`).
+
+    E.g. the APIs of a batch get the masks of the APIs of its handle - the batch has APIs of its own. `source` and
+    `target` are APIs or collections of APIs (their APIs are matched by names of attributes); the masks are compiled
+    by the APIs of `target`.
+    """
+    if isinstance(source, AbstractApi) and isinstance(target, AbstractApi):
+        source._copy_validation_masks_to(target)
+        return
+    for name, source_api in getattr(source, "__dict__", {}).items():
+        target_api = getattr(target, name, None)
+        if isinstance(source_api, AbstractApi) and isinstance(target_api, AbstractApi):
+            source_api._copy_validation_masks_to(target_api)
 
 
 class _ApiCallbacks[CallbacksT: (Callbacks, AsyncCallbacks)]:
@@ -187,6 +205,47 @@ class AbstractApi(ABC, Generic[HandleT]):
 
     def __init__(self, owner: HandleT) -> None:
         self._owner = owner
+        self.__validation_masks: dict[str, tuple[Mapping[str, object], object]] = {}
+        """Validation masks of endpoints - as given and compiled."""
+
+    def _compile_validation_mask(self, endpoint_name: str, mask: Mapping[str, object]) -> object:
+        """
+        Prepare the validation mask of the endpoint for validators of responses - raise when the mask is wrong.
+
+        APIs with validation models compile it (e.g. to a validation model reduced to the fields of the mask), so a
+        wrong mask is reported when it is set and requests do not compile it. By default the mask as it is.
+        """
+        return mask
+
+    def _set_validation_mask(self, endpoint_name: str, mask: Mapping[str, object] | None) -> None:
+        """Set the validation mask of the endpoint (`None` - no mask) - see `BoundEndpoint.set_validation_mask`."""
+        if mask is None:
+            self.__validation_masks.pop(endpoint_name, None)
+        else:
+            self.__validation_masks[endpoint_name] = (mask, self._compile_validation_mask(endpoint_name, mask))
+
+    def _validation_mask(self, endpoint_name: str) -> Mapping[str, object] | None:
+        """The validation mask of the endpoint, `None` when it has no mask."""
+        masks = self.__validation_masks.get(endpoint_name)
+        return None if masks is None else masks[0]
+
+    def _compiled_validation_mask(self, endpoint_name: str) -> object | None:
+        """The compiled validation mask of the endpoint, `None` when it has no mask."""
+        masks = self.__validation_masks.get(endpoint_name)
+        return None if masks is None else masks[1]
+
+    def _copy_validation_masks_to(self, target: AbstractApi[HandleT]) -> None:
+        """Give the endpoints of the target API the validation masks of the same endpoints of this API."""
+        for endpoint_name, (mask, _) in self.__validation_masks.items():
+            if hasattr(type(target), endpoint_name):
+                target._set_validation_mask(endpoint_name, mask)
+
+    def _compiled_validation_masks_of_request(self, endpoint_name: str) -> Mapping[str, object]:
+        """The compiled mask of the endpoint by its JSON-RPC method - for validators of its request."""
+        compiled = self._compiled_validation_mask(endpoint_name)
+        if compiled is None:
+            return {}
+        return {f"{self._get_api_name_from_method(getattr(type(self), endpoint_name))}.{endpoint_name}": compiled}
 
 
 class AbstractSyncApi(AbstractApi[SyncSendable]):
@@ -218,9 +277,10 @@ class AbstractSyncApi(AbstractApi[SyncSendable]):
     ) -> ExpectResultT:
         """Send the request of the endpoint through the owner, with callbacks of the collection, API and endpoint."""
         callbacks = self.__callbacks.of_request(endpoint_name)
-        return self._owner._send(
-            method=method, expected_type=expected_type, data=data, url=url, callbacks=callbacks
-        ).result
+        with compiled_validation_masks(self._compiled_validation_masks_of_request(endpoint_name)):
+            return self._owner._send(
+                method=method, expected_type=expected_type, data=data, url=url, callbacks=callbacks
+            ).result
 
     def _additional_arguments_actions(
         self,
@@ -295,11 +355,12 @@ class AbstractAsyncApi(AbstractApi[AsyncSendable]):
     ) -> ExpectResultT:
         """Send the request of the endpoint through the owner, with callbacks of the collection, API and endpoint."""
         callbacks = self.__callbacks.of_request(endpoint_name)
-        return (
-            await self._owner._async_send(
-                method=method, expected_type=expected_type, data=data, url=url, callbacks=callbacks
-            )
-        ).result
+        with compiled_validation_masks(self._compiled_validation_masks_of_request(endpoint_name)):
+            return (
+                await self._owner._async_send(
+                    method=method, expected_type=expected_type, data=data, url=url, callbacks=callbacks
+                )
+            ).result
 
     async def _additional_arguments_actions(
         self,
