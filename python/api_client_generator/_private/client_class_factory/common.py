@@ -45,6 +45,10 @@ def create_api_client(
         EndpointParamsIsNotModelError: If the endpoint parameters are not a model (msgspec struct or dataclass).
     """
     methods = []
+    base_class_name = base_class if isinstance(base_class, str) else base_class.__name__
+    # the decorator of the base class itself - type checkers (pyright) do not resolve it through an alias assigned in
+    # the body of the class
+    qualified_endpoint_decorator = f"{base_class_name}.{endpoint_decorator}"
 
     for endpoint_name, endpoint_parameters in endpoints.items():
         params = endpoint_parameters.get("params", None)
@@ -61,23 +65,13 @@ def create_api_client(
                 endpoint_name,
                 params,
                 result,
-                endpoint_decorator,
+                qualified_endpoint_decorator,
                 str(description) if description else None,
                 response_array=response_array,
                 asynchronous=asynchronous,
                 legacy_args_serialization=legacy_args_serialization,
             )
         )
-
-    base_class_name = base_class if isinstance(base_class, str) else base_class.__name__
-
-    endpoint_decorator_assign = ast.Assign(  # Assign endpoint decorator as class variable
-        targets=[ast.Name(id=endpoint_decorator)],
-        value=ast.Attribute(
-            value=ast.Name(id=base_class_name),
-            attr=endpoint_decorator,
-        ),
-    )
 
     if legacy_args_serialization:
         methods.append(
@@ -104,7 +98,7 @@ def create_api_client(
     ]
 
     docstring = ast.Expr(value=ast.Constant(value=f"Client of the `{api_name}` API."))
-    body: list[ast.stmt] = [docstring, *attributes_assign, endpoint_decorator_assign, *methods]
+    body: list[ast.stmt] = [docstring, *attributes_assign, *methods]
 
     return ast.ClassDef(
         name=snake_to_camel(api_name),

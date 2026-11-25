@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 import msgspec
 
 from api_client_generator._private.common.converters import snake_to_camel
+from api_client_generator._private.common.defaults import DEFAULT_ENDPOINT_REST_DECORATOR_NAME
 from api_client_generator._private.common.models_aliased import SwaggerReadyForExtraction
 from api_client_generator._private.common.openapi_to_python_type import convert_openapi_type_to_python_type
 from api_client_generator._private.description_tools import (
@@ -26,7 +27,10 @@ if TYPE_CHECKING:
 
 
 def create_endpoints_for_all_url_paths(
-    swagger: SwaggerReadyForExtraction, *, asynchronous: bool = True
+    swagger: SwaggerReadyForExtraction,
+    *,
+    asynchronous: bool = True,
+    endpoint_decorator: str = DEFAULT_ENDPOINT_REST_DECORATOR_NAME,
 ) -> CreatedEndpoints:
     """
     Create endpoints for all URL paths defined in the Swagger/OpenAPI specification.
@@ -34,6 +38,8 @@ def create_endpoints_for_all_url_paths(
     Args:
         swagger: The Swagger/OpenAPI specification as a dictionary.
         asynchronous: If True, the endpoints will be created as asynchronous methods.
+        endpoint_decorator: The object whose methods (`get`, `post`, ...) decorate the endpoints, e.g.
+            `AbstractAsyncApi.endpoint_rest()`.
 
     Returns:
         A list of endpoints created from the Swagger paths.
@@ -77,7 +83,9 @@ def create_endpoints_for_all_url_paths(
         method = msgspec.convert(path[method_type], RestApiMethod)
 
         endpoints.append(
-            create_endpoint(method_name, url_path, method, response, method_type, asynchronous=asynchronous)
+            create_endpoint(
+                method_name, url_path, method, response, method_type, endpoint_decorator, asynchronous=asynchronous
+            )
         )
 
     return endpoints

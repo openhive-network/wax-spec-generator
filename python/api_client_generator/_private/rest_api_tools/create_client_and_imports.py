@@ -5,10 +5,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from api_client_generator._private.common.converters import snake_to_camel
-from api_client_generator._private.common.defaults import (
-    DEFAULT_ENDPOINT_REST_DECORATOR_NAME,
-    DEFAULT_IMPORT_LEVEL,
-)
+from api_client_generator._private.common.defaults import DEFAULT_IMPORT_LEVEL
 from api_client_generator._private.common.generated_class import GeneratedClass
 from api_client_generator._private.common.models_aliased import (
     BaseApiClass,
@@ -30,7 +27,6 @@ def create_client_and_imports(
     base_class: type[BaseApiClass] | str,
     base_class_source: str | None = None,
     types_module_path: str | Path | None = None,
-    endpoint_decorator: str = DEFAULT_ENDPOINT_REST_DECORATOR_NAME,
     additional_items_to_import: Sequence[Importable] | None = None,
     already_imported: list[str] | None = None,
     types_generated: bool = True,
@@ -45,7 +41,6 @@ def create_client_and_imports(
         base_class: The base class for the API client.
         base_class_source: The source of the base class.
         types_module_path: The path to the module containing types.
-        endpoint_decorator: The name of the endpoint decorator to be used.
         additional_items_to_import: Additional items to import.
         already_imported: A list of already imported items.
         types_generated: Whether types have been generated from the Swagger definition.
@@ -82,13 +77,6 @@ def create_client_and_imports(
 
     class_name = snake_to_camel(api_name)
 
-    endpoint_decorator_assign = ast.Assign(  # Assign endpoint decorator as class variable
-        targets=[ast.Name(id=endpoint_decorator)],
-        value=ast.Attribute(
-            value=ast.Name(id=base_class_name),
-            attr=f"{endpoint_decorator}()",  # rest decorator is a class method of the base class
-        ),
-    )
     base_url_method = ast.FunctionDef(
         name="base_path",
         args=ast.arguments(
@@ -105,7 +93,7 @@ def create_client_and_imports(
         decorator_list=[],
     )
 
-    body: list[ast.stmt] = [endpoint_decorator_assign, base_url_method, *endpoints]
+    body: list[ast.stmt] = [base_url_method, *endpoints]
 
     class_def = ast.ClassDef(
         name=class_name,

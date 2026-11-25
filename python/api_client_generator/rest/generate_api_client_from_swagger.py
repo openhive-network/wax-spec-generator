@@ -65,7 +65,12 @@ def generate_api_client_from_swagger(
     server_url = get_api_name_from_server_property(openapi)
     api_name = hyphen_to_snake(server_url)
 
-    endpoints = create_endpoints_for_all_url_paths(openapi, asynchronous=asynchronous)
+    base_class_name = base_class if isinstance(base_class, str) else base_class.__name__
+    # the decorators of the base class itself - type checkers (pyright) do not resolve them through an alias assigned
+    # in the body of the class
+    endpoints = create_endpoints_for_all_url_paths(
+        openapi, asynchronous=asynchronous, endpoint_decorator=f"{base_class_name}.{endpoint_decorator}()"
+    )
 
     class_and_imports = create_client_and_imports(
         api_name,
@@ -74,7 +79,6 @@ def generate_api_client_from_swagger(
         base_class,
         base_class_source,
         module_path,
-        endpoint_decorator,
         types_generated=types_generated,
     )
 
