@@ -272,7 +272,7 @@ def test_client_class_attributes_are_emitted() -> None:
 
     # ASSERT
     source = ast.unparse(ast.fix_missing_locations(ast.Module(body=[class_def], type_ignores=[])))
-    assert "    __validation_module__ = 'pkg._validation.test_api'\n    __serialization__ = 'legacy'\n" in source
+    assert "    __validation_module__ = 'pkg._validation.test_api'\n    __serialization__ = 'legacy'" in source
     assert ast.get_docstring(class_def) == "Client of the `test_api` API."
 
 

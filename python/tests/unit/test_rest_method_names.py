@@ -16,6 +16,8 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 _STRING_RESPONSE: Final[dict[str, object]] = {"200": {"content": {"application/json": {"schema": {"type": "string"}}}}}
+_REST: Final[str] = "MockAsyncRestApiBase.endpoint_rest()"
+"""Decorators of generated endpoints - methods of the REST helper of the base class."""
 
 
 def _operation(*path_params: str) -> dict[str, object]:
@@ -83,10 +85,10 @@ def test_nested_paths_get_names_with_their_path_params(tmp_path: Path) -> None:
 
     # ASSERT
     assert methods == {
-        "posts": ("endpoint_rest.get('/posts')", []),
-        "posts_by_author_permlink": ("endpoint_rest.get('/posts/{author}/{permlink}')", ["author", "permlink"]),
-        "communities": ("endpoint_rest.get('/communities')", []),
-        "communities_by_name": ("endpoint_rest.get('/communities/{name}')", ["name"]),
+        "posts": (f"{_REST}.get('/posts')", []),
+        "posts_by_author_permlink": (f"{_REST}.get('/posts/{{author}}/{{permlink}}')", ["author", "permlink"]),
+        "communities": (f"{_REST}.get('/communities')", []),
+        "communities_by_name": (f"{_REST}.get('/communities/{{name}}')", ["name"]),
     }
 
 
@@ -101,8 +103,8 @@ def test_get_keeps_name_of_path_with_several_methods(tmp_path: Path) -> None:
 
     # ASSERT
     assert methods == {
-        "accounts_post": ("endpoint_rest.post('/accounts/{account-name}')", ["account_name"]),
-        "accounts": ("endpoint_rest.get('/accounts/{account-name}')", ["account_name"]),
+        "accounts_post": (f"{_REST}.post('/accounts/{{account-name}}')", ["account_name"]),
+        "accounts": (f"{_REST}.get('/accounts/{{account-name}}')", ["account_name"]),
     }
 
 
@@ -112,8 +114,8 @@ def test_unique_names_are_unchanged(tmp_path: Path) -> None:
 
     # ASSERT
     assert {name: decorator for name, (decorator, _) in methods.items()} == {
-        "test_2": "endpoint_rest.get('/test-2')",
-        "test_balances": "endpoint_rest.get('/test/{test-name}/balances')",
+        "test_2": f"{_REST}.get('/test-2')",
+        "test_balances": f"{_REST}.get('/test/{{test-name}}/balances')",
     }
 
 
